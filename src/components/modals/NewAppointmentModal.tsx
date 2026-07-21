@@ -189,8 +189,21 @@ export function NewAppointmentModal({
             Dia todo
           </button>
         </div>
-        {allDay && (
+        {allDay ? (
           <div className="text-[11px] text-text-faint mt-1.5">Vai ocupar o dia inteiro (08:00 às 18:00).</div>
+        ) : (
+          <label className="flex items-center gap-2 text-[12px] text-text-muted mt-2">
+            ou duração exata:
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={duration}
+              onChange={(e) => setDuration(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+              className="border border-[#D8D5CD] rounded-lg px-2 py-1.5 text-[13px] w-16"
+            />
+            horas — termina às {Math.min(18, parseInt(slot.time) + duration)}h
+          </label>
         )}
       </div>
 
