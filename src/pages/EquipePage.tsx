@@ -24,6 +24,8 @@ export function EquipePage() {
   const [newEmail, setNewEmail] = useState('')
   const [inviteBusy, setInviteBusy] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const [inviteResult, setInviteResult] = useState<{ name: string; link: string } | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const team = consultants.filter((c) => c.role === 'consultor')
   const editing = editingId ? team.find((c) => c.id === editingId) : null
@@ -33,13 +35,27 @@ export function EquipePage() {
     if (!newName.trim() || !newEmail.trim()) return
     setInviteBusy(true)
     setInviteError(null)
-    const { error } = await inviteConsultant({ name: newName.trim(), email: newEmail.trim() })
+    setInviteResult(null)
+    const name = newName.trim()
+    const { error, inviteLink } = await inviteConsultant({ name, email: newEmail.trim() })
     setInviteBusy(false)
     if (error) setInviteError(error)
     else {
+      if (inviteLink) setInviteResult({ name, link: inviteLink })
       setNewName('')
       setNewEmail('')
     }
+  }
+
+  function whatsappUrl(name: string, link: string) {
+    const text = `Oi ${name.split(' ')[0]}! Segue o link para você criar sua senha e acessar o Legacy CRM: ${link}`
+    return `https://wa.me/?text=${encodeURIComponent(text)}`
+  }
+
+  async function copyLink(link: string) {
+    await navigator.clipboard.writeText(link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   function monthsOfPartnership(contractStart: string) {
@@ -117,6 +133,44 @@ export function EquipePage() {
           </div>
           {inviteError && <div className="text-xs font-semibold text-[#B23030]">{inviteError}</div>}
         </form>
+
+        {inviteResult && (
+          <div className="mt-3 bg-[#EAF0FA] border border-[#C7D7EE] rounded-xl p-3.5 flex flex-col gap-2.5">
+            <div className="text-[12.5px] font-semibold">
+              Convite de {inviteResult.name} criado! Envie o link abaixo para ele(a) criar a senha e entrar:
+            </div>
+            <div className="bg-white border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[11.5px] text-text-muted break-all">
+              {inviteResult.link}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <a
+                href={whatsappUrl(inviteResult.name, inviteResult.link)}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-[#25D366] text-white rounded-lg px-3 py-2 text-[12.5px] font-semibold"
+              >
+                Enviar pelo WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={() => copyLink(inviteResult.link)}
+                className="bg-navy text-white border-none rounded-lg px-3 py-2 text-[12.5px] font-semibold"
+              >
+                {copied ? 'Copiado!' : 'Copiar link'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setInviteResult(null)}
+                className="bg-transparent border-none text-text-muted text-[12.5px] font-semibold"
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="text-[11px] text-text-faint">
+              Esse link expira depois de um tempo — se o consultor demorar para usar, gere um novo convite.
+            </div>
+          </div>
+        )}
       </div>
 
       {editing && (

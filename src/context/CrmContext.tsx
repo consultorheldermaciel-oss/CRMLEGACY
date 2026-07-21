@@ -21,7 +21,10 @@ interface CrmState {
   removeConsultant: (id: string) => Promise<void>
   dismissReminder: (id: string) => Promise<void>
   createReminder: (payload: { icon: string; title: string; date: string }) => Promise<void>
-  inviteConsultant: (payload: { name: string; email: string }) => Promise<{ error: string | null }>
+  inviteConsultant: (payload: {
+    name: string
+    email: string
+  }) => Promise<{ error: string | null; inviteLink: string | null }>
 }
 
 const CrmContext = createContext<CrmState | undefined>(undefined)
@@ -136,11 +139,14 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   }
 
   async function inviteConsultant(payload: { name: string; email: string }) {
-    const { data, error } = await supabase.functions.invoke('invite-consultor', { body: payload })
-    if (error) return { error: error.message }
-    if (data?.error) return { error: data.error as string }
+    const redirectTo = `${window.location.origin}/convite`
+    const { data, error } = await supabase.functions.invoke('invite-consultor', {
+      body: { ...payload, redirectTo },
+    })
+    if (error) return { error: error.message, inviteLink: null }
+    if (data?.error) return { error: data.error as string, inviteLink: null }
     await refresh()
-    return { error: null }
+    return { error: null, inviteLink: (data?.inviteLink as string) ?? null }
   }
 
   const value = useMemo(
