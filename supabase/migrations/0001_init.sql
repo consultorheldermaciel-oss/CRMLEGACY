@@ -118,7 +118,7 @@ begin
   insert into public.profiles (id, role, name, email)
   values (
     new.id,
-    case when not exists (select 1 from public.profiles) then 'lider' else 'consultor' end,
+    (case when not exists (select 1 from public.profiles) then 'lider' else 'consultor' end)::public.user_role,
     coalesce(new.raw_user_meta_data ->> 'name', split_part(new.email, '@', 1)),
     new.email
   )
