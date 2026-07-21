@@ -201,6 +201,14 @@ export function EquipePage() {
             </div>
             <div>
               <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">DADOS PESSOAIS</div>
+              <label className="text-xs text-text-muted flex flex-col gap-1 mb-2.5">
+                Nome
+                <input
+                  defaultValue={editing.name}
+                  onBlur={(e) => e.target.value.trim() && updateConsultant(editing.id, { name: toTitleCase(e.target.value) })}
+                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+                />
+              </label>
               <label className="text-xs text-text-muted flex flex-col gap-1 max-w-[200px]">
                 Data de nascimento
                 <input
