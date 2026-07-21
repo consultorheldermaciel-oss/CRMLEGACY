@@ -32,11 +32,24 @@ export interface Profile {
   color: string
   phone: string | null
   email: string | null
+  avatar_url: string | null
+  birth_date: string | null
+  spouse_name: string | null
+  spouse_birth_date: string | null
+  spouse_phone: string | null
   contract_start: string
   commission_pct: number
   bonus_per_policy: number
   daily_goals: DailyGoals
   extra_goals: ExtraGoal[]
+  created_at: string
+}
+
+export interface Dependent {
+  id: string
+  consultant_id: string
+  name: string
+  birth_date: string | null
   created_at: string
 }
 

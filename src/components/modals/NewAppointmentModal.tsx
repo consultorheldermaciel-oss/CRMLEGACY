@@ -24,6 +24,7 @@ export function NewAppointmentModal({
   const [eventKind, setEventKind] = useState(EVENT_KINDS[0])
   const [eventOther, setEventOther] = useState('')
   const [duration, setDuration] = useState(1)
+  const [allDay, setAllDay] = useState(false)
   const [inviteManager, setInviteManager] = useState(false)
   const [clientName, setClientName] = useState('')
   const [anamnese, setAnamnese] = useState<Anamnese>({})
@@ -60,9 +61,9 @@ export function NewAppointmentModal({
         client_name: clientName || (type === 'evento' ? kind || 'Evento' : 'Novo cliente'),
         type,
         event_kind: kind,
-        duration,
+        duration: allDay ? 10 : duration,
         date: slot.date,
-        time: slot.time,
+        time: allDay ? '08:00' : slot.time,
         status: 'agendado',
         wants_manager: wantsManager,
         locked_by_lider: isLiderCreator,
@@ -88,7 +89,7 @@ export function NewAppointmentModal({
           [
             ['abordagem', '🤝 Abordagem (1º encontro)', '#0B2D5B'],
             ['fechamento', '✅ Fechamento (2º encontro)', '#3FA66B'],
-            ['evento', '👔 Outro evento', '#6B4FA0'],
+            ...(isLiderCreator ? [['evento', '👔 Outro evento', '#6B4FA0']] : []),
           ] as [AppointmentType, string, string][]
         ).map(([key, label, color]) => (
           <button
@@ -132,18 +133,36 @@ export function NewAppointmentModal({
             <button
               key={n}
               type="button"
-              onClick={() => setDuration(n)}
+              onClick={() => {
+                setDuration(n)
+                setAllDay(false)
+              }}
               className="flex-1 border rounded-lg py-2 text-[13px] font-bold"
               style={{
-                borderColor: duration === n ? '#0B2D5B' : '#D8D5CD',
-                background: duration === n ? '#0B2D5B' : '#fff',
-                color: duration === n ? '#fff' : '#1A1D23',
+                borderColor: !allDay && duration === n ? '#0B2D5B' : '#D8D5CD',
+                background: !allDay && duration === n ? '#0B2D5B' : '#fff',
+                color: !allDay && duration === n ? '#fff' : '#1A1D23',
               }}
             >
               {n}h
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setAllDay((v) => !v)}
+            className="flex-1 border rounded-lg py-2 text-[13px] font-bold"
+            style={{
+              borderColor: allDay ? '#0B2D5B' : '#D8D5CD',
+              background: allDay ? '#0B2D5B' : '#fff',
+              color: allDay ? '#fff' : '#1A1D23',
+            }}
+          >
+            Dia todo
+          </button>
         </div>
+        {allDay && (
+          <div className="text-[11px] text-text-faint mt-1.5">Vai ocupar o dia inteiro (08:00 às 18:00).</div>
+        )}
       </div>
 
       {!isGestorAggregate && (

@@ -1,13 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase, functionErrorMessage } from '../lib/supabase'
 import { useAuth } from './AuthContext'
-import type { Appointment, Profile, Reminder, Task } from '../lib/types'
+import type { Appointment, Dependent, Profile, Reminder, Task } from '../lib/types'
 
 interface CrmState {
   consultants: Profile[]
   appointments: Appointment[]
   tasks: Task[]
   reminders: Reminder[]
+  dependents: Dependent[]
   dismissedReminderIds: Set<string>
   loading: boolean
   refresh: () => Promise<void>
@@ -25,6 +26,10 @@ interface CrmState {
     name: string
     email: string
   }) => Promise<{ error: string | null; inviteLink: string | null }>
+  createDependent: (payload: { consultant_id: string; name: string; birth_date: string | null }) => Promise<void>
+  updateDependent: (id: string, patch: Partial<Dependent>) => Promise<void>
+  removeDependent: (id: string) => Promise<void>
+  uploadAvatar: (consultantId: string, file: File) => Promise<{ error: string | null }>
 }
 
 const CrmContext = createContext<CrmState | undefined>(undefined)
@@ -35,24 +40,27 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
+  const [dependents, setDependents] = useState<Dependent[]>([])
   const [dismissedReminderIds, setDismissedReminderIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
   async function refresh() {
     if (!session) return
     setLoading(true)
-    const [c, a, t, r, d] = await Promise.all([
+    const [c, a, t, r, d, dep] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at'),
       supabase.from('appointments').select('*').order('date').order('time'),
       supabase.from('tasks').select('*').order('deadline'),
       supabase.from('reminders').select('*').order('date'),
       supabase.from('dismissed_reminders').select('reminder_id').eq('profile_id', session.user.id),
+      supabase.from('dependents').select('*').order('created_at'),
     ])
     setConsultants((c.data as Profile[]) ?? [])
     setAppointments((a.data as Appointment[]) ?? [])
     setTasks((t.data as Task[]) ?? [])
     setReminders((r.data as Reminder[]) ?? [])
     setDismissedReminderIds(new Set((d.data ?? []).map((row) => row.reminder_id as string)))
+    setDependents((dep.data as Dependent[]) ?? [])
     setLoading(false)
   }
 
@@ -69,6 +77,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reminders' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dependents' }, () => refresh())
       .subscribe()
 
     return () => {
@@ -148,12 +157,41 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     return { error: null, inviteLink: (data?.inviteLink as string) ?? null }
   }
 
+  async function createDependent(payload: { consultant_id: string; name: string; birth_date: string | null }) {
+    const { error } = await supabase.from('dependents').insert(payload)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
+  async function updateDependent(id: string, patch: Partial<Dependent>) {
+    const { error } = await supabase.from('dependents').update(patch).eq('id', id)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
+  async function removeDependent(id: string) {
+    const { error } = await supabase.from('dependents').delete().eq('id', id)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
+  async function uploadAvatar(consultantId: string, file: File) {
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `${consultantId}/${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    if (uploadError) return { error: uploadError.message }
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+    await updateConsultant(consultantId, { avatar_url: data.publicUrl })
+    return { error: null }
+  }
+
   const value = useMemo(
     () => ({
       consultants,
       appointments,
       tasks,
       reminders,
+      dependents,
       dismissedReminderIds,
       loading,
       refresh,
@@ -166,9 +204,13 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       dismissReminder,
       createReminder,
       inviteConsultant,
+      createDependent,
+      updateDependent,
+      removeDependent,
+      uploadAvatar,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [consultants, appointments, tasks, reminders, dismissedReminderIds, loading],
+    [consultants, appointments, tasks, reminders, dependents, dismissedReminderIds, loading],
   )
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>

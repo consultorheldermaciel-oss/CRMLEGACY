@@ -111,11 +111,19 @@ export function WeekView({
                     (a) => a.date === ds && h > parseInt(a.time) && h < apptSpan(a).end,
                   )
                   if (covering) {
+                    const cons = consultantById.get(covering.consultant_id)
                     return (
                       <div key={ds} className="bg-white min-h-[50px] p-0.5 flex flex-col gap-0.5">
-                        <div className="bg-[#EFEDE6] rounded text-[#B0B4BC] h-full min-h-4 flex items-center justify-center text-[10px]">
-                          ···
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => (covering.locked_by_lider ? onConflict(covering) : undefined)}
+                          className="rounded h-full min-h-4 flex items-center px-1.5 w-full"
+                          style={{ background: cons?.color ?? '#666', opacity: 0.55, cursor: covering.locked_by_lider ? 'pointer' : 'default' }}
+                        >
+                          <span className="text-white text-[9.5px] font-semibold truncate">
+                            {cons?.name.split(' ')[0]}
+                          </span>
+                        </button>
                       </div>
                     )
                   }
@@ -149,8 +157,11 @@ export function WeekView({
                       <button
                         type="button"
                         onClick={() => (covering.locked_by_lider ? onConflict(covering) : undefined)}
-                        className="bg-[#F6F5F2] rounded h-full min-h-4 w-full cursor-pointer"
-                      />
+                        className="rounded h-full min-h-4 w-full flex items-center px-1.5"
+                        style={{ background: apptColor(covering), opacity: 0.55, cursor: covering.locked_by_lider ? 'pointer' : 'default' }}
+                      >
+                        <span className="text-white text-[9.5px] font-semibold truncate">{covering.client_name}</span>
+                      </button>
                     </div>
                   )
                 }
