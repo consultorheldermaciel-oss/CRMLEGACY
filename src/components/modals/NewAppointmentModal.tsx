@@ -8,6 +8,28 @@ import { Chip } from '../ui/Chip'
 import { AnamneseForm } from './AnamneseForm'
 
 const EVENT_KINDS = ['Reunião com o líder', 'Reunião com outro líder', 'Treinamento', 'Outro']
+const WEEKDAYS_FULL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0')
+}
+function toDstr(d: Date) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+/** Every following occurrence of the same weekday as `startDate`, through Dec 31 of that year. */
+function weeklyOccurrences(startDate: string): string[] {
+  const [y, m, d] = startDate.split('-').map(Number)
+  const start = new Date(y, m - 1, d)
+  const dec31 = new Date(y, 11, 31)
+  const dates: string[] = []
+  const cursor = new Date(start)
+  while (cursor <= dec31) {
+    dates.push(toDstr(cursor))
+    cursor.setDate(cursor.getDate() + 7)
+  }
+  return dates
+}
 
 export function NewAppointmentModal({
   slot,
@@ -25,6 +47,7 @@ export function NewAppointmentModal({
   const [eventOther, setEventOther] = useState('')
   const [duration, setDuration] = useState(1)
   const [allDay, setAllDay] = useState(false)
+  const [repeatWeekly, setRepeatWeekly] = useState(false)
   const [inviteManager, setInviteManager] = useState(false)
   const [clientName, setClientName] = useState('')
   const [anamnese, setAnamnese] = useState<Anamnese>({})
@@ -55,30 +78,36 @@ export function NewAppointmentModal({
     setSaving(true)
     const kind = type === 'evento' ? (eventKind === 'Outro' ? eventOther || 'Outro' : eventKind) : null
     const wantsManager = type === 'evento' && kind?.includes('líder') ? true : inviteManager
+    const dates = repeatWeekly ? weeklyOccurrences(slot.date) : [slot.date]
     for (const consultantId of slot.consultantIds) {
-      await createAppointment({
-        consultant_id: consultantId,
-        client_name: clientName || (type === 'evento' ? kind || 'Evento' : 'Novo cliente'),
-        type,
-        event_kind: kind,
-        duration: allDay ? 10 : duration,
-        date: slot.date,
-        time: allDay ? '08:00' : slot.time,
-        status: 'agendado',
-        wants_manager: wantsManager,
-        locked_by_lider: isLiderCreator,
-        anamnese: type === 'abordagem' ? anamnese : {},
-        policy_closed: null,
-        premium: null,
-        product: null,
-        policy_delivered: null,
-        fechamento_agendado: false,
-        linked_appointment_id: null,
-      })
+      for (const date of dates) {
+        await createAppointment({
+          consultant_id: consultantId,
+          client_name: clientName || (type === 'evento' ? kind || 'Evento' : 'Novo cliente'),
+          type,
+          event_kind: kind,
+          duration: allDay ? 10 : duration,
+          date,
+          time: allDay ? '08:00' : slot.time,
+          status: 'agendado',
+          wants_manager: wantsManager,
+          locked_by_lider: isLiderCreator,
+          anamnese: type === 'abordagem' ? anamnese : {},
+          policy_closed: null,
+          premium: null,
+          product: null,
+          policy_delivered: null,
+          fechamento_agendado: false,
+          linked_appointment_id: null,
+        })
+      }
     }
     setSaving(false)
     onClose()
   }
+
+  const weekdayName = WEEKDAYS_FULL[new Date(`${slot.date}T00:00:00`).getDay()]
+  const occurrenceCount = repeatWeekly ? weeklyOccurrences(slot.date).length : 1
 
   return (
     <Modal onClose={onClose}>
@@ -162,6 +191,18 @@ export function NewAppointmentModal({
         </div>
         {allDay && (
           <div className="text-[11px] text-text-faint mt-1.5">Vai ocupar o dia inteiro (08:00 às 18:00).</div>
+        )}
+      </div>
+
+      <div className="mb-3">
+        <label className="flex items-center gap-2 text-[13px]">
+          <input type="checkbox" checked={repeatWeekly} onChange={(e) => setRepeatWeekly(e.target.checked)} />
+          🔁 Repetir toda {weekdayName} até o fim do ano
+        </label>
+        {repeatWeekly && (
+          <div className="text-[11px] text-text-faint mt-1">
+            Vai criar {occurrenceCount} agendamentos, um por semana, até 31/12.
+          </div>
         )}
       </div>
 
