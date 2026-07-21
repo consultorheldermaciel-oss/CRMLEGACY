@@ -89,7 +89,7 @@ export function NewAppointmentModal({
           [
             ['abordagem', '🤝 Abordagem (1º encontro)', '#0B2D5B'],
             ['fechamento', '✅ Fechamento (2º encontro)', '#3FA66B'],
-            ...(isLiderCreator ? [['evento', '👔 Outro evento', '#6B4FA0']] : []),
+            ...(isGestorAggregate ? [['evento', '👔 Outro evento', '#6B4FA0']] : []),
           ] as [AppointmentType, string, string][]
         ).map(([key, label, color]) => (
           <button
