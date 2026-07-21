@@ -19,7 +19,7 @@ const DAILY_GOAL_FIELDS: [keyof DailyGoals, string][] = [
 ]
 
 export function EquipePage() {
-  const { consultants, dependents, updateConsultant, removeConsultant, inviteConsultant, uploadAvatar } = useCrm()
+  const { consultants, dependents, removeConsultant, inviteConsultant } = useCrm()
   const { openTaskModal } = useUi()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
@@ -171,185 +171,245 @@ export function EquipePage() {
       </div>
 
       {editing && (
-        <div className="bg-card border border-border rounded-2xl p-5.5">
-          <div className="flex items-center justify-between mb-4.5">
-            <div className="font-heading font-bold text-[17px]">Editar consultor — {editing.name}</div>
-            <button type="button" onClick={() => setEditingId(null)} className="bg-transparent border-none text-xl text-text-faint">
-              ×
-            </button>
-          </div>
+        <EditConsultantPanel
+          key={editing.id}
+          editing={editing}
+          dependents={dependents.filter((d) => d.consultant_id === editing.id)}
+          onClose={() => setEditingId(null)}
+        />
+      )}
+    </div>
+  )
+}
 
-          <div className="flex flex-col gap-4.5">
-            <AvatarUploader profile={editing} onUpload={(file) => uploadAvatar(editing.id, file)} />
-            <div>
-              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">COR DE IDENTIFICAÇÃO</div>
-              <div className="flex gap-2 flex-wrap">
-                {CONSULTANT_COLOR_SWATCHES.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => updateConsultant(editing.id, { color })}
-                    className="w-7 h-7 rounded-full"
-                    style={{
-                      background: color,
-                      boxShadow: editing.color === color ? '0 0 0 2px #fff, 0 0 0 4px #1A1D23' : undefined,
-                    }}
-                    aria-label={`Usar cor ${color}`}
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">DADOS PESSOAIS</div>
-              <label className="text-xs text-text-muted flex flex-col gap-1 mb-2.5">
-                Nome
-                <input
-                  defaultValue={editing.name}
-                  onBlur={(e) => e.target.value.trim() && updateConsultant(editing.id, { name: toTitleCase(e.target.value) })}
-                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                />
-              </label>
-              <label className="text-xs text-text-muted flex flex-col gap-1 max-w-[200px]">
-                Data de nascimento
-                <input
-                  type="date"
-                  defaultValue={editing.birth_date ?? ''}
-                  onBlur={(e) => updateConsultant(editing.id, { birth_date: e.target.value || null })}
-                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                />
-              </label>
-            </div>
-            <div>
-              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CONTATO</div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <input
-                  defaultValue={editing.phone ?? ''}
-                  onBlur={(e) => updateConsultant(editing.id, { phone: e.target.value })}
-                  placeholder="Telefone"
-                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                />
-                <div className="text-[13px] text-text-muted flex items-center">{editing.email}</div>
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CÔNJUGE</div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <input
-                  defaultValue={editing.spouse_name ?? ''}
-                  onBlur={(e) => updateConsultant(editing.id, { spouse_name: e.target.value ? toTitleCase(e.target.value) : null })}
-                  placeholder="Nome do cônjuge"
-                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                />
-                <input
-                  defaultValue={editing.spouse_phone ?? ''}
-                  onBlur={(e) => updateConsultant(editing.id, { spouse_phone: e.target.value || null })}
-                  placeholder="Telefone do cônjuge"
-                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                />
-                <label className="text-xs text-text-muted flex flex-col gap-1 col-span-2 max-w-[200px]">
-                  Data de nascimento do cônjuge
-                  <input
-                    type="date"
-                    defaultValue={editing.spouse_birth_date ?? ''}
-                    onBlur={(e) => updateConsultant(editing.id, { spouse_birth_date: e.target.value || null })}
-                    className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                  />
-                </label>
-              </div>
-            </div>
-            <DependentsEditor consultantId={editing.id} dependents={dependents.filter((d) => d.consultant_id === editing.id)} />
-            <div>
-              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CONTRATO COM A METLIFE</div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <input
-                  type="date"
-                  defaultValue={editing.contract_start}
-                  onBlur={(e) => updateConsultant(editing.id, { contract_start: e.target.value })}
-                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                />
-                <div className="text-[13px] text-text-muted flex items-center">
-                  parceiro(a) desde {editing.contract_start}
-                </div>
-              </div>
-            </div>
-            {(() => {
-              const pr = prCadastroProgress(editing.contract_start, new Date())
-              return (
-                <div>
-                  <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">
-                    PR CADASTRO — MÊS {pr.month} DE 17
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div className="text-[11px] text-text-muted mb-1">Apólices pagas acumuladas</div>
-                      <div className="bg-[#EFEDE6] rounded-md h-2 overflow-hidden">
-                        <div className="bg-green h-full" style={{ width: `${pr.policiesPct}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] text-text-muted mb-1">Prêmio pago no trimestre</div>
-                      <div className="bg-[#EFEDE6] rounded-md h-2 overflow-hidden">
-                        <div className="bg-navy h-full" style={{ width: `${pr.premiumPct}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-text-muted mt-1.5">
-                    Bônus PR do mês: <span className="font-mono font-semibold">R$ {pr.bonusValue.toLocaleString('pt-BR')}</span>
-                  </div>
-                </div>
-              )
-            })()}
-            <div>
-              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">BÔNUS E COMISSIONAMENTO BASE</div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <label className="text-xs text-text-muted flex flex-col gap-1">
-                  % comissão
-                  <input
-                    type="number"
-                    defaultValue={editing.commission_pct}
-                    onBlur={(e) => updateConsultant(editing.id, { commission_pct: Number(e.target.value) || 0 })}
-                    className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                  />
-                </label>
-                <label className="text-xs text-text-muted flex flex-col gap-1">
-                  Bônus por apólice (R$)
-                  <input
-                    type="number"
-                    defaultValue={editing.bonus_per_policy}
-                    onBlur={(e) => updateConsultant(editing.id, { bonus_per_policy: Number(e.target.value) || 0 })}
-                    className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                  />
-                </label>
-              </div>
-            </div>
-            <ExtraGoalsEditor
-              goals={editing.extra_goals}
-              onChange={(goals) => updateConsultant(editing.id, { extra_goals: goals })}
-            />
-            <div>
-              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">METAS DE PRODUTIVIDADE (POR DIA)</div>
-              <div className="grid grid-cols-2 gap-2.5">
-                {DAILY_GOAL_FIELDS.map(([key, label]) => (
-                  <label key={key} className="text-[11.5px] text-text-muted flex flex-col gap-1">
-                    {label}
-                    <input
-                      type="number"
-                      step="0.1"
-                      defaultValue={editing.daily_goals[key]}
-                      onBlur={(e) =>
-                        updateConsultant(editing.id, {
-                          daily_goals: { ...editing.daily_goals, [key]: Number(e.target.value) || 0 },
-                        })
-                      }
-                      className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
+function EditConsultantPanel({
+  editing,
+  dependents,
+  onClose,
+}: {
+  editing: Profile
+  dependents: Dependent[]
+  onClose: () => void
+}) {
+  const { updateConsultant, uploadAvatar } = useCrm()
+  const [draft, setDraft] = useState({
+    name: editing.name,
+    birth_date: editing.birth_date ?? '',
+    phone: editing.phone ?? '',
+    spouse_name: editing.spouse_name ?? '',
+    spouse_phone: editing.spouse_phone ?? '',
+    spouse_birth_date: editing.spouse_birth_date ?? '',
+    contract_start: editing.contract_start,
+    commission_pct: editing.commission_pct,
+    bonus_per_policy: editing.bonus_per_policy,
+  })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  function set<K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) {
+    setSaved(false)
+    setDraft((d) => ({ ...d, [key]: value }))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await updateConsultant(editing.id, {
+      name: toTitleCase(draft.name) || editing.name,
+      birth_date: draft.birth_date || null,
+      phone: draft.phone || null,
+      spouse_name: draft.spouse_name ? toTitleCase(draft.spouse_name) : null,
+      spouse_phone: draft.spouse_phone || null,
+      spouse_birth_date: draft.spouse_birth_date || null,
+      contract_start: draft.contract_start,
+      commission_pct: Number(draft.commission_pct) || 0,
+      bonus_per_policy: Number(draft.bonus_per_policy) || 0,
+    })
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const pr = prCadastroProgress(draft.contract_start, new Date())
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-5.5">
+      <div className="flex items-center justify-between mb-4.5">
+        <div className="font-heading font-bold text-[17px]">Editar consultor — {editing.name}</div>
+        <button type="button" onClick={onClose} className="bg-transparent border-none text-xl text-text-faint">
+          ×
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-4.5">
+        <AvatarUploader profile={editing} onUpload={(file) => uploadAvatar(editing.id, file)} />
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">COR DE IDENTIFICAÇÃO</div>
+          <div className="flex gap-2 flex-wrap">
+            {CONSULTANT_COLOR_SWATCHES.map((color) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => updateConsultant(editing.id, { color })}
+                className="w-7 h-7 rounded-full"
+                style={{
+                  background: color,
+                  boxShadow: editing.color === color ? '0 0 0 2px #fff, 0 0 0 4px #1A1D23' : undefined,
+                }}
+                aria-label={`Usar cor ${color}`}
+              />
+            ))}
           </div>
         </div>
-      )}
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">DADOS PESSOAIS</div>
+          <label className="text-xs text-text-muted flex flex-col gap-1 mb-2.5">
+            Nome
+            <input
+              value={draft.name}
+              onChange={(e) => set('name', e.target.value)}
+              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+            />
+          </label>
+          <label className="text-xs text-text-muted flex flex-col gap-1 max-w-[200px]">
+            Data de nascimento
+            <input
+              type="date"
+              value={draft.birth_date}
+              onChange={(e) => set('birth_date', e.target.value)}
+              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+            />
+          </label>
+        </div>
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CONTATO</div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <input
+              value={draft.phone}
+              onChange={(e) => set('phone', e.target.value)}
+              placeholder="Telefone"
+              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+            />
+            <div className="text-[13px] text-text-muted flex items-center">{editing.email}</div>
+          </div>
+        </div>
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CÔNJUGE</div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <input
+              value={draft.spouse_name}
+              onChange={(e) => set('spouse_name', e.target.value)}
+              placeholder="Nome do cônjuge"
+              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+            />
+            <input
+              value={draft.spouse_phone}
+              onChange={(e) => set('spouse_phone', e.target.value)}
+              placeholder="Telefone do cônjuge"
+              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+            />
+            <label className="text-xs text-text-muted flex flex-col gap-1 col-span-2 max-w-[200px]">
+              Data de nascimento do cônjuge
+              <input
+                type="date"
+                value={draft.spouse_birth_date}
+                onChange={(e) => set('spouse_birth_date', e.target.value)}
+                className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+              />
+            </label>
+          </div>
+        </div>
+        <DependentsEditor consultantId={editing.id} dependents={dependents} />
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CONTRATO COM A METLIFE</div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <input
+              type="date"
+              value={draft.contract_start}
+              onChange={(e) => set('contract_start', e.target.value)}
+              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+            />
+            <div className="text-[13px] text-text-muted flex items-center">parceiro(a) desde {draft.contract_start}</div>
+          </div>
+        </div>
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">PR CADASTRO — MÊS {pr.month} DE 17</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-[11px] text-text-muted mb-1">Apólices pagas acumuladas</div>
+              <div className="bg-[#EFEDE6] rounded-md h-2 overflow-hidden">
+                <div className="bg-green h-full" style={{ width: `${pr.policiesPct}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-text-muted mb-1">Prêmio pago no trimestre</div>
+              <div className="bg-[#EFEDE6] rounded-md h-2 overflow-hidden">
+                <div className="bg-navy h-full" style={{ width: `${pr.premiumPct}%` }} />
+              </div>
+            </div>
+          </div>
+          <div className="text-xs text-text-muted mt-1.5">
+            Bônus PR do mês: <span className="font-mono font-semibold">R$ {pr.bonusValue.toLocaleString('pt-BR')}</span>
+          </div>
+        </div>
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">BÔNUS E COMISSIONAMENTO BASE</div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <label className="text-xs text-text-muted flex flex-col gap-1">
+              % comissão
+              <input
+                type="number"
+                value={draft.commission_pct}
+                onChange={(e) => set('commission_pct', Number(e.target.value))}
+                className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+              />
+            </label>
+            <label className="text-xs text-text-muted flex flex-col gap-1">
+              Bônus por apólice (R$)
+              <input
+                type="number"
+                value={draft.bonus_per_policy}
+                onChange={(e) => set('bonus_per_policy', Number(e.target.value))}
+                className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+              />
+            </label>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={saving}
+          onClick={handleSave}
+          className="bg-navy text-white border-none rounded-lg py-3 text-sm font-bold w-full disabled:opacity-60"
+        >
+          {saving ? 'Salvando…' : saved ? '✅ Alterações salvas!' : 'Salvar alterações'}
+        </button>
+
+        <ExtraGoalsEditor
+          goals={editing.extra_goals}
+          onChange={(goals) => updateConsultant(editing.id, { extra_goals: goals })}
+        />
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">METAS DE PRODUTIVIDADE (POR DIA)</div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {DAILY_GOAL_FIELDS.map(([key, label]) => (
+              <label key={key} className="text-[11.5px] text-text-muted flex flex-col gap-1">
+                {label}
+                <input
+                  type="number"
+                  step="0.1"
+                  defaultValue={editing.daily_goals[key]}
+                  onBlur={(e) =>
+                    updateConsultant(editing.id, {
+                      daily_goals: { ...editing.daily_goals, [key]: Number(e.target.value) || 0 },
+                    })
+                  }
+                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
