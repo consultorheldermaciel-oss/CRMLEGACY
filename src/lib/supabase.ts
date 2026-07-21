@@ -23,3 +23,22 @@ export const supabase = createClient(
     },
   },
 )
+
+/**
+ * supabase.functions.invoke() collapses any non-2xx response into a generic
+ * "Edge Function returned a non-2xx status code" — the real message our
+ * function sent back as JSON is on error.context (the raw Response). This
+ * digs it out so users/logs see the actual reason instead of the generic one.
+ */
+export async function functionErrorMessage(error: unknown, fallback = 'Falha inesperada.'): Promise<string> {
+  const ctx = (error as { context?: Response })?.context
+  if (ctx && typeof ctx.json === 'function') {
+    try {
+      const body = await ctx.clone().json()
+      if (body?.error) return body.error as string
+    } catch {
+      // response body wasn't JSON — fall through to the generic message below
+    }
+  }
+  return (error as { message?: string })?.message ?? fallback
+}

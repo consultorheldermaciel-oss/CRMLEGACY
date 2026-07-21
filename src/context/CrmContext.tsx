@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, functionErrorMessage } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import type { Appointment, Profile, Reminder, Task } from '../lib/types'
 
@@ -143,7 +143,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.functions.invoke('invite-consultor', {
       body: { ...payload, appOrigin },
     })
-    if (error) return { error: error.message, inviteLink: null }
+    if (error) return { error: await functionErrorMessage(error), inviteLink: null }
     if (data?.error) return { error: data.error as string, inviteLink: null }
     return { error: null, inviteLink: (data?.inviteLink as string) ?? null }
   }

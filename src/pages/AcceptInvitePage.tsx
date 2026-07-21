@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, functionErrorMessage } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { LogoMark } from '../components/ui/LogoMark'
 
@@ -22,9 +22,11 @@ export default function AcceptInvitePage() {
     if (!token) return
     supabase.functions
       .invoke('get-invite', { body: { token } })
-      .then(({ data, error }) => {
-        if (error || data?.error) {
-          setCheckError((data?.error as string) ?? error?.message ?? 'Convite inválido.')
+      .then(async ({ data, error }) => {
+        if (error) {
+          setCheckError(await functionErrorMessage(error, 'Convite inválido.'))
+        } else if (data?.error) {
+          setCheckError(data.error as string)
         } else {
           setInvite({ name: data.name, email: data.email })
         }
@@ -47,9 +49,14 @@ export default function AcceptInvitePage() {
     const { data, error } = await supabase.functions.invoke('accept-invite', {
       body: { token, password },
     })
-    if (error || data?.error) {
+    if (error) {
       setBusy(false)
-      setSubmitError((data?.error as string) ?? error?.message ?? 'Falha ao criar a conta.')
+      setSubmitError(await functionErrorMessage(error, 'Falha ao criar a conta.'))
+      return
+    }
+    if (data?.error) {
+      setBusy(false)
+      setSubmitError(data.error as string)
       return
     }
     const { error: signInError } = await signIn(data.email, password)
