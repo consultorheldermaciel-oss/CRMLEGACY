@@ -106,8 +106,13 @@ export function DayView({
                       <button
                         type="button"
                         onClick={() => (covering.locked_by_lider ? onConflict(covering) : undefined)}
-                        className="bg-[#F6F5F2] rounded h-full min-h-5 w-full cursor-pointer"
-                      />
+                        className="rounded h-full min-h-5 w-full flex items-center px-1.5"
+                        style={{ background: apptColor(covering), opacity: 0.55, cursor: covering.locked_by_lider ? 'pointer' : 'default' }}
+                      >
+                        <span className="text-white text-[9.5px] font-semibold truncate">
+                          {covering.client_name}
+                        </span>
+                      </button>
                     </div>
                   )
                 }

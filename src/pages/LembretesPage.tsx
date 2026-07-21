@@ -4,6 +4,7 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { taskUrgency } from '../lib/domain'
 import { dateLabel } from '../lib/format'
+import { computeBirthdayReminders } from '../lib/birthdays'
 
 function todayStr() {
   const d = new Date()
@@ -12,7 +13,7 @@ function todayStr() {
 
 export function LembretesPage() {
   const { profile } = useAuth()
-  const { consultants, tasks, reminders, markTaskDone, createReminder } = useCrm()
+  const { consultants, dependents, tasks, reminders, markTaskDone, createReminder } = useCrm()
   const { viewingId } = useUi()
   const [icon, setIcon] = useState('🎂')
   const [title, setTitle] = useState('')
@@ -22,6 +23,16 @@ export function LembretesPage() {
   const isGestor = profile.role === 'lider'
   const scopedTasks = viewingId === 'gestor' ? tasks : tasks.filter((t) => t.consultant_id === viewingId)
   const today = todayStr()
+
+  const scopedConsultants = viewingId === 'gestor' ? consultants : consultants.filter((c) => c.id === viewingId)
+  const scopedDependents =
+    viewingId === 'gestor' ? dependents : dependents.filter((d) => d.consultant_id === viewingId)
+  const birthdayReminders = computeBirthdayReminders(scopedConsultants, scopedDependents, new Date())
+
+  const importantDates = [
+    ...reminders.map((r) => ({ id: r.id, icon: r.icon, title: r.title, date: r.date })),
+    ...birthdayReminders,
+  ].sort((a, b) => a.date.localeCompare(b.date))
 
   async function handleAddReminder(e: FormEvent) {
     e.preventDefault()
@@ -81,7 +92,7 @@ export function LembretesPage() {
       <div className="bg-card border border-border rounded-2xl p-5">
         <div className="font-heading font-bold text-[17px] mb-3.5">Datas importantes</div>
         <div className="flex flex-col gap-2 mb-4">
-          {reminders.map((r) => (
+          {importantDates.map((r) => (
             <div
               key={r.id}
               className="flex items-center gap-3 px-3.5 py-2.5 border border-border rounded-[10px]"
@@ -97,7 +108,9 @@ export function LembretesPage() {
               )}
             </div>
           ))}
-          {reminders.length === 0 && <div className="text-[12.5px] text-text-faint">Nenhuma data cadastrada ainda.</div>}
+          {importantDates.length === 0 && (
+            <div className="text-[12.5px] text-text-faint">Nenhuma data cadastrada ainda.</div>
+          )}
         </div>
 
         {isGestor && (

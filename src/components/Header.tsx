@@ -1,9 +1,10 @@
 import { useAuth } from '../context/AuthContext'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
-import { initials } from '../lib/format'
 import type { Screen } from '../context/UiContext'
 import { LogoMark } from './ui/LogoMark'
+import { Avatar } from './ui/Avatar'
+import { computeBirthdayReminders } from '../lib/birthdays'
 
 function todayStr() {
   const d = new Date()
@@ -12,7 +13,7 @@ function todayStr() {
 
 export function Header() {
   const { profile, signOut } = useAuth()
-  const { consultants, reminders, tasks, dismissedReminderIds, dismissReminder } = useCrm()
+  const { consultants, reminders, dependents, tasks, dismissedReminderIds, dismissReminder } = useCrm()
   const { viewingId, setViewingId, screen, setScreen } = useUi()
 
   if (!profile) return null
@@ -20,10 +21,14 @@ export function Header() {
 
   const scopedTasks = isLider ? tasks : tasks.filter((t) => t.consultant_id === profile.id)
   const pendingTaskCount = scopedTasks.filter((t) => !t.done).length
-  const reminderCount = reminders.filter((r) => !dismissedReminderIds.has(r.id)).length + pendingTaskCount
+  const birthdayReminders = computeBirthdayReminders(consultants, dependents, new Date())
 
   const today = todayStr()
-  const todayReminders = reminders.filter((r) => r.date === today && !dismissedReminderIds.has(r.id))
+  const todayManualReminders = reminders.filter((r) => r.date === today && !dismissedReminderIds.has(r.id))
+  const todayBirthdays = birthdayReminders.filter((r) => r.date === today)
+  const todayReminders = [...todayManualReminders, ...todayBirthdays]
+  const reminderCount =
+    reminders.filter((r) => !dismissedReminderIds.has(r.id)).length + todayBirthdays.length + pendingTaskCount
 
   const viewingConsultant = viewingId === 'gestor' ? null : consultants.find((c) => c.id === viewingId)
   const viewingLabel = isLider
@@ -65,13 +70,10 @@ export function Header() {
                   type="button"
                   title="Líder de unidade (toda a equipe)"
                   onClick={() => setViewingId('gestor')}
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-heading font-bold text-[13px] text-white shrink-0"
-                  style={{
-                    background: '#1C2230',
-                    border: `2px solid ${viewingId === 'gestor' ? '#fff' : 'transparent'}`,
-                  }}
+                  className="rounded-full p-0.5 shrink-0"
+                  style={{ border: `2px solid ${viewingId === 'gestor' ? '#fff' : 'transparent'}` }}
                 >
-                  {initials(profile.name || 'Líder')}
+                  <Avatar profile={profile} size={38} />
                 </button>
                 {consultants
                   .filter((c) => c.role === 'consultor')
@@ -81,20 +83,16 @@ export function Header() {
                       type="button"
                       title={c.name}
                       onClick={() => setViewingId(c.id)}
-                      className="w-10 h-10 rounded-full flex items-center justify-center font-heading font-bold text-[13px] text-white shrink-0"
-                      style={{ background: c.color, border: `2px solid ${viewingId === c.id ? '#fff' : 'transparent'}` }}
+                      className="rounded-full p-0.5 shrink-0"
+                      style={{ border: `2px solid ${viewingId === c.id ? '#fff' : 'transparent'}` }}
                     >
-                      {initials(c.name)}
+                      <Avatar profile={c} size={38} />
                     </button>
                   ))}
               </>
             ) : (
-              <div
-                title={profile.name}
-                className="w-10 h-10 rounded-full flex items-center justify-center font-heading font-bold text-[13px] text-white shrink-0 border-2 border-white"
-                style={{ background: profile.color }}
-              >
-                {initials(profile.name)}
+              <div title={profile.name} className="rounded-full p-0.5 border-2 border-white shrink-0">
+                <Avatar profile={profile} size={38} />
               </div>
             )}
 
@@ -145,7 +143,7 @@ export function Header() {
           </div>
           <button
             type="button"
-            onClick={() => todayReminders.forEach((r) => dismissReminder(r.id))}
+            onClick={() => todayManualReminders.forEach((r) => dismissReminder(r.id))}
             className="bg-white/20 text-white border border-white/40 rounded-md px-3 py-1.5 text-[13px] font-semibold"
           >
             Já mandei mensagem
