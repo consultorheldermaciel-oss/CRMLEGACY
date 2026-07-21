@@ -1,11 +1,11 @@
 // Edge Function: invite-consultor
-// Called by an authenticated 'lider' to create a consultor account and generate an
-// invite link for them to set their own password. The link is returned to the caller
-// (instead of only being emailed) so the lider can share it via WhatsApp, email, etc.
+// Called by an authenticated 'lider' to register a pending invite for a consultor
+// and return a short link (https://<app>/convite/<token>) they can share however
+// they like (WhatsApp, email...). No Supabase auth user is created yet — that
+// happens when the consultor opens the link and sets a password, via the
+// accept-invite function.
 // Deploy: supabase functions deploy invite-consultor
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-
-const CONSULTANT_COLORS = ['#0B2D5B', '#3FA66B', '#B5622A', '#6B4FA0', '#1E7A8C']
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,7 +33,6 @@ Deno.serve(async (req) => {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-  // Client scoped to the caller, used only to verify who is calling and their role.
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   })
@@ -55,32 +54,30 @@ Deno.serve(async (req) => {
     return json({ error: 'Só o líder de unidade pode convidar consultores.' }, 403)
   }
 
-  const { email, name, redirectTo } = await req.json()
-  if (!email || !name) {
+  const { email, name, appOrigin } = await req.json()
+  if (!email || !name || !appOrigin) {
     return json({ error: 'Informe nome e e-mail.' }, 400)
   }
 
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: 'invite',
-    email,
-    options: {
-      data: { name },
-      redirectTo: redirectTo || undefined,
-    },
-  })
-  if (linkError || !linkData?.user) {
-    return json({ error: linkError?.message ?? 'Falha ao gerar convite.' }, 400)
-  }
-
-  const { count } = await admin.from('profiles').select('id', { count: 'exact', head: true })
-  const color = CONSULTANT_COLORS[(count ?? 0) % CONSULTANT_COLORS.length]
-
-  const { error: profileError } = await admin
+  const { data: existing } = await admin
     .from('profiles')
-    .upsert({ id: linkData.user.id, role: 'consultor', name, email, color }, { onConflict: 'id' })
-  if (profileError) {
-    return json({ error: profileError.message }, 400)
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
+  if (existing) {
+    return json({ error: 'Já existe uma conta com esse e-mail.' }, 400)
   }
 
-  return json({ ok: true, userId: linkData.user.id, inviteLink: linkData.properties?.action_link })
+  const token = crypto.randomUUID().replace(/-/g, '')
+  const { error: insertError } = await admin.from('invites').insert({
+    token,
+    email,
+    name,
+    created_by: caller.id,
+  })
+  if (insertError) {
+    return json({ error: insertError.message }, 400)
+  }
+
+  return json({ ok: true, inviteLink: `${appOrigin}/convite/${token}` })
 })

@@ -40,7 +40,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/convite" element={<AcceptInvitePage />} />
+          <Route path="/convite/:token" element={<AcceptInvitePage />} />
           <Route path="/*" element={<ProtectedApp />} />
         </Routes>
       </AuthProvider>

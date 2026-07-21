@@ -139,13 +139,12 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   }
 
   async function inviteConsultant(payload: { name: string; email: string }) {
-    const redirectTo = `${window.location.origin}/convite`
+    const appOrigin = window.location.origin
     const { data, error } = await supabase.functions.invoke('invite-consultor', {
-      body: { ...payload, redirectTo },
+      body: { ...payload, appOrigin },
     })
     if (error) return { error: error.message, inviteLink: null }
     if (data?.error) return { error: data.error as string, inviteLink: null }
-    await refresh()
     return { error: null, inviteLink: (data?.inviteLink as string) ?? null }
   }
 

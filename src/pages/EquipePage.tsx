@@ -48,7 +48,7 @@ export function EquipePage() {
   }
 
   function whatsappUrl(name: string, link: string) {
-    const text = `Oi ${name.split(' ')[0]}! Segue o link para você criar sua senha e acessar o Legacy CRM: ${link}`
+    const text = `Você foi convidado(a) para entrar na equipe Legacy, ${name.split(' ')[0]}! Toque no link para criar sua senha e acessar: ${link}`
     return `https://wa.me/?text=${encodeURIComponent(text)}`
   }
 
