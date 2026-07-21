@@ -3,6 +3,7 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { initials } from '../lib/format'
 import type { Screen } from '../context/UiContext'
+import { LogoMark } from './ui/LogoMark'
 
 function todayStr() {
   const d = new Date()
@@ -45,10 +46,7 @@ export function Header() {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-[42px] h-[42px] rounded-[10px] bg-[#1C2230] flex items-center justify-center shrink-0">
-              <div className="w-5 h-5 relative">
-                <div className="absolute inset-0 border-[3px] border-white rotate-45 rounded-[3px]" />
-                <div className="absolute inset-1 border-[3px] border-white rounded-[2px]" />
-              </div>
+              <LogoMark size={22} />
             </div>
             <div>
               <div className="font-heading font-extrabold text-[19px] text-white tracking-wide leading-none">
