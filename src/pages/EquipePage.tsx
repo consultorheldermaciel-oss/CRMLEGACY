@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
-import { initials } from '../lib/format'
 import { prCadastroProgress } from '../lib/kpi'
-import type { DailyGoals, ExtraGoal } from '../lib/types'
+import type { DailyGoals, Dependent, ExtraGoal, Profile } from '../lib/types'
+import { Avatar } from '../components/ui/Avatar'
 
 const DAILY_GOAL_FIELDS: [keyof DailyGoals, string][] = [
   ['abordagens', 'Abordagens / dia'],
@@ -17,7 +17,7 @@ const DAILY_GOAL_FIELDS: [keyof DailyGoals, string][] = [
 ]
 
 export function EquipePage() {
-  const { consultants, updateConsultant, removeConsultant, inviteConsultant } = useCrm()
+  const { consultants, dependents, updateConsultant, removeConsultant, inviteConsultant, uploadAvatar } = useCrm()
   const { openTaskModal } = useUi()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
@@ -75,12 +75,7 @@ export function EquipePage() {
               className="flex items-center gap-2.5 p-2.5 rounded-[10px]"
               style={{ background: editingId === c.id ? '#EAF0FA' : 'transparent' }}
             >
-              <div
-                className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0"
-                style={{ background: c.color }}
-              >
-                {initials(c.name)}
-              </div>
+              <Avatar profile={c} size={34} />
               <div className="flex-1 min-w-0">
                 <div className="text-[13.5px] font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{c.name}</div>
                 <div className="text-[11px] text-text-faint">{monthsOfPartnership(c.contract_start)} meses de parceria</div>
@@ -183,14 +178,18 @@ export function EquipePage() {
           </div>
 
           <div className="flex flex-col gap-4.5">
+            <AvatarUploader profile={editing} onUpload={(file) => uploadAvatar(editing.id, file)} />
             <div>
-              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">FOTO</div>
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg"
-                style={{ background: editing.color }}
-              >
-                {initials(editing.name)}
-              </div>
+              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">DADOS PESSOAIS</div>
+              <label className="text-xs text-text-muted flex flex-col gap-1 max-w-[200px]">
+                Data de nascimento
+                <input
+                  type="date"
+                  defaultValue={editing.birth_date ?? ''}
+                  onBlur={(e) => updateConsultant(editing.id, { birth_date: e.target.value || null })}
+                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+                />
+              </label>
             </div>
             <div>
               <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CONTATO</div>
@@ -204,6 +203,33 @@ export function EquipePage() {
                 <div className="text-[13px] text-text-muted flex items-center">{editing.email}</div>
               </div>
             </div>
+            <div>
+              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CÔNJUGE</div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <input
+                  defaultValue={editing.spouse_name ?? ''}
+                  onBlur={(e) => updateConsultant(editing.id, { spouse_name: e.target.value || null })}
+                  placeholder="Nome do cônjuge"
+                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+                />
+                <input
+                  defaultValue={editing.spouse_phone ?? ''}
+                  onBlur={(e) => updateConsultant(editing.id, { spouse_phone: e.target.value || null })}
+                  placeholder="Telefone do cônjuge"
+                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+                />
+                <label className="text-xs text-text-muted flex flex-col gap-1 col-span-2 max-w-[200px]">
+                  Data de nascimento do cônjuge
+                  <input
+                    type="date"
+                    defaultValue={editing.spouse_birth_date ?? ''}
+                    onBlur={(e) => updateConsultant(editing.id, { spouse_birth_date: e.target.value || null })}
+                    className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+                  />
+                </label>
+              </div>
+            </div>
+            <DependentsEditor consultantId={editing.id} dependents={dependents.filter((d) => d.consultant_id === editing.id)} />
             <div>
               <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CONTRATO COM A METLIFE</div>
               <div className="grid grid-cols-2 gap-2.5">
@@ -347,6 +373,104 @@ function ExtraGoalsEditor({ goals, onChange }: { goals: ExtraGoal[]; onChange: (
           className="bg-navy text-white border-none rounded-lg px-3 py-2 text-xs font-semibold"
         >
           Adicionar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AvatarUploader({ profile, onUpload }: { profile: Profile; onUpload: (file: File) => Promise<{ error: string | null }> }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBusy(true)
+    setError(null)
+    const { error } = await onUpload(file)
+    setBusy(false)
+    if (error) setError(error)
+  }
+
+  return (
+    <div>
+      <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">FOTO</div>
+      <div className="flex items-center gap-3">
+        <Avatar profile={profile} size={56} />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => fileRef.current?.click()}
+          className="bg-bg border border-[#D8D5CD] rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-60"
+        >
+          {busy ? 'Enviando…' : 'Alterar foto'}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+      </div>
+      {error && <div className="text-xs font-semibold text-[#B23030] mt-1.5">{error}</div>}
+    </div>
+  )
+}
+
+function DependentsEditor({ consultantId, dependents }: { consultantId: string; dependents: Dependent[] }) {
+  const { createDependent, updateDependent, removeDependent } = useCrm()
+  const [name, setName] = useState('')
+  const [birthDate, setBirthDate] = useState('')
+
+  return (
+    <div>
+      <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">FILHOS</div>
+      <div className="flex flex-col gap-2 mb-2.5">
+        {dependents.map((d) => (
+          <div key={d.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+            <input
+              defaultValue={d.name}
+              onBlur={(e) => updateDependent(d.id, { name: e.target.value })}
+              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+            />
+            <input
+              type="date"
+              defaultValue={d.birth_date ?? ''}
+              onBlur={(e) => updateDependent(d.id, { birth_date: e.target.value || null })}
+              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+            />
+            <button
+              type="button"
+              onClick={() => removeDependent(d.id)}
+              className="bg-transparent border-none text-text-faint text-[15px] p-1"
+            >
+              🗑️
+            </button>
+          </div>
+        ))}
+        {dependents.length === 0 && <div className="text-[12px] text-text-faint">Nenhum filho cadastrado.</div>}
+      </div>
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nome do filho(a)"
+          className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+        />
+        <input
+          type="date"
+          value={birthDate}
+          onChange={(e) => setBirthDate(e.target.value)}
+          className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            if (!name.trim()) return
+            createDependent({ consultant_id: consultantId, name: name.trim(), birth_date: birthDate || null })
+            setName('')
+            setBirthDate('')
+          }}
+          className="bg-navy text-white border-none rounded-lg px-3 py-2 text-xs font-semibold"
+        >
+          +
         </button>
       </div>
     </div>
