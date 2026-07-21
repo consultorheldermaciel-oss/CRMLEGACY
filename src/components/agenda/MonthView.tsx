@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { WEEKDAYS, dstr } from '../../lib/format'
-import { apptColor, apptTypeLabel, monthYearLabel as fmtMonthYear } from '../../lib/domain'
+import { apptColor, apptTypeLabel, findApptCovering, isOccupied, monthYearLabel as fmtMonthYear } from '../../lib/domain'
 import type { Appointment, Profile } from '../../lib/types'
 
 function todayParts() {
@@ -10,20 +10,26 @@ function todayParts() {
 
 export function MonthView({
   appointments,
+  allAppointments,
+  viewingId,
   consultants,
   isGestorView,
   onOpenAppt,
   onDayClickGestor,
   onDayClickSelf,
   onOpenSlotChooser,
+  onFullDay,
 }: {
   appointments: Appointment[]
+  allAppointments: Appointment[]
+  viewingId: string
   consultants: Profile[]
   isGestorView: boolean
   onOpenAppt: (id: string) => void
   onDayClickGestor: (date: string) => void
   onDayClickSelf: (date: string, time: string) => void
   onOpenSlotChooser: (ids: string[]) => void
+  onFullDay: (appt: Appointment) => void
 }) {
   const [cursor, setCursor] = useState(() => {
     const t = todayParts()
@@ -89,6 +95,23 @@ export function MonthView({
       }))
     }
 
+    const handleDayClick = () => {
+      if (isGestorView) return onDayClickGestor(ds)
+      let freeHour: number | null = null
+      for (let h = 8; h < 18; h++) {
+        if (!isOccupied(allAppointments, viewingId, ds, h)) {
+          freeHour = h
+          break
+        }
+      }
+      if (freeHour === null) {
+        const covering = findApptCovering(allAppointments, viewingId, ds, 8) ?? allAppointments.find((a) => a.date === ds)
+        if (covering) onFullDay(covering)
+        return
+      }
+      onDayClickSelf(ds, `${String(freeHour).padStart(2, '0')}:00`)
+    }
+
     cells.push(
       <div
         key={ds}
@@ -96,16 +119,7 @@ export function MonthView({
         style={{ background: isToday ? '#EAF0FA' : '#fff' }}
         onClick={(e) => {
           if (e.target !== e.currentTarget) return
-          if (isGestorView) return onDayClickGestor(ds)
-          const takenHours = new Set(dayApps.map((a) => parseInt(a.time)))
-          let freeHour = 9
-          for (let h = 8; h < 18; h++) {
-            if (!takenHours.has(h)) {
-              freeHour = h
-              break
-            }
-          }
-          onDayClickSelf(ds, `${String(freeHour).padStart(2, '0')}:00`)
+          handleDayClick()
         }}
       >
         <div className="flex justify-between items-center">
@@ -115,18 +129,7 @@ export function MonthView({
           <button
             type="button"
             className="bg-transparent border-none text-text-faint text-xs font-bold px-0.5 leading-none"
-            onClick={() => {
-              if (isGestorView) return onDayClickGestor(ds)
-              const takenHours = new Set(dayApps.map((a) => parseInt(a.time)))
-              let freeHour = 9
-              for (let h = 8; h < 18; h++) {
-                if (!takenHours.has(h)) {
-                  freeHour = h
-                  break
-                }
-              }
-              onDayClickSelf(ds, `${String(freeHour).padStart(2, '0')}:00`)
-            }}
+            onClick={handleDayClick}
           >
             +
           </button>

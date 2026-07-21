@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Appointment, Profile } from '../../lib/types'
 import { dateLabel, initials } from '../../lib/format'
+import { isOccupied } from '../../lib/domain'
 import { Modal } from '../ui/Modal'
 
 export function ConsultantPickerModal({
@@ -25,13 +26,9 @@ export function ConsultantPickerModal({
 
   function confirm() {
     if (!selected.length) return
-    const takenByAll = new Set<number>()
-    appointments
-      .filter((a) => selected.includes(a.consultant_id) && a.date === date)
-      .forEach((a) => takenByAll.add(parseInt(a.time)))
     let freeHour = 9
     for (let h = 8; h < 18; h++) {
-      if (!takenByAll.has(h)) {
+      if (selected.every((id) => !isOccupied(appointments, id, date, h))) {
         freeHour = h
         break
       }

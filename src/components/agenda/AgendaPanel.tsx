@@ -88,12 +88,15 @@ export function AgendaPanel({ period }: { period: Period }) {
       {period === 'mes' && (
         <MonthView
           appointments={scoped}
+          allAppointments={byRole}
+          viewingId={viewingId}
           consultants={team}
           isGestorView={isGestorView}
           onOpenAppt={setSelectedApptId}
           onDayClickGestor={(date) => setPickerDate(date)}
           onDayClickSelf={(date, time) => openNewApptModal([viewingId], date, time)}
           onOpenSlotChooser={setSlotChooserApptIds}
+          onFullDay={setConflictAppt}
         />
       )}
       {period === 'semana' && (
