@@ -16,6 +16,7 @@ interface CrmState {
     payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by'>,
   ) => Promise<Appointment | null>
   updateAppointment: (id: string, patch: Partial<Appointment>) => Promise<void>
+  deleteAppointment: (id: string) => Promise<void>
   createTask: (payload: { consultant_id: string; text: string; deadline: string }) => Promise<void>
   markTaskDone: (id: string) => Promise<void>
   updateConsultant: (id: string, patch: Partial<Profile>) => Promise<void>
@@ -110,6 +111,12 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     await refresh()
   }
 
+  async function deleteAppointment(id: string) {
+    const { error } = await supabase.from('appointments').delete().eq('id', id)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
   async function createTask(payload: { consultant_id: string; text: string; deadline: string }) {
     if (!session) return
     const { error } = await supabase.from('tasks').insert({ ...payload, assigned_by: session.user.id })
@@ -197,6 +204,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       refresh,
       createAppointment,
       updateAppointment,
+      deleteAppointment,
       createTask,
       markTaskDone,
       updateConsultant,

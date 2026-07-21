@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import type { Anamnese, Appointment } from '../../lib/types'
 import { PRODUCTS } from '../../lib/types'
@@ -35,7 +36,9 @@ function googleCalendarUrl(appt: Appointment) {
 }
 
 export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose: () => void }) {
-  const { consultants, appointments, updateAppointment, createAppointment } = useCrm()
+  const { profile } = useAuth()
+  const { consultants, appointments, updateAppointment, deleteAppointment, createAppointment } = useCrm()
+  const canDelete = profile?.role === 'lider' || appt.created_by === profile?.id
   const [remarcarActive, setRemarcarActive] = useState(false)
   const [remarcarDate, setRemarcarDate] = useState<string | null>(null)
   const [showAgendarFechamento, setShowAgendarFechamento] = useState(false)
@@ -212,6 +215,20 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         <button type="button" onClick={() => setEditingAnamnese((v) => !v)} className="bg-transparent border-none p-0 text-navy">
           ✏️ {editingAnamnese ? 'Cancelar edição' : 'Editar anamnese'}
         </button>
+        {canDelete && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Excluir este agendamento? Essa ação não pode ser desfeita.')) {
+                deleteAppointment(appt.id)
+                onClose()
+              }
+            }}
+            className="bg-transparent border-none p-0 text-red"
+          >
+            🗑️ Excluir agendamento
+          </button>
+        )}
       </div>
 
       {appt.status === 'agendado' && !remarcarActive && (
