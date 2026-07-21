@@ -6,6 +6,7 @@ import type { Anamnese, AppointmentType } from '../../lib/types'
 import { Modal, ModalHeader } from '../ui/Modal'
 import { Chip } from '../ui/Chip'
 import { AnamneseForm } from './AnamneseForm'
+import { toTitleCase } from '../../lib/format'
 
 const EVENT_KINDS = ['Reunião com o líder', 'Reunião com outro líder', 'Treinamento', 'Outro']
 const WEEKDAYS_FULL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
@@ -83,7 +84,8 @@ export function NewAppointmentModal({
       for (const date of dates) {
         await createAppointment({
           consultant_id: consultantId,
-          client_name: clientName || (type === 'evento' ? kind || 'Evento' : 'Novo cliente'),
+          client_name:
+            type === 'evento' ? clientName || kind || 'Evento' : clientName ? toTitleCase(clientName) : 'Novo cliente',
           type,
           event_kind: kind,
           duration: allDay ? 10 : duration,

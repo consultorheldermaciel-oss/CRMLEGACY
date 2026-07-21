@@ -36,6 +36,25 @@ export function dateLabel(ds: string): string {
   return `${d} de ${MONTHS[m]}`
 }
 
+const NAME_PARTICLES = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
+
+/** Capitalizes each word of a proper name (Portuguese-aware: keeps "de/da/do/e" lowercase). */
+export function toTitleCase(str: string): string {
+  return str
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word, idx) => {
+      const lower = word.toLowerCase()
+      if (idx > 0 && NAME_PARTICLES.has(lower)) return lower
+      return lower
+        .split('-')
+        .map((seg) => (seg ? seg.charAt(0).toUpperCase() + seg.slice(1) : seg))
+        .join('-')
+    })
+    .join(' ')
+}
+
 export function initials(name: string): string {
   return name
     .split(' ')

@@ -117,4 +117,17 @@ export const PRODUCTS = [
   'Acidentes Pessoais',
 ]
 
-export const CONSULTANT_COLORS = ['#0B2D5B', '#3FA66B', '#B5622A', '#6B4FA0', '#1E7A8C']
+// Kept clearly distinct from the lider's own navy (#0B2D5B) so avatars never look alike.
+export const CONSULTANT_COLORS = ['#2E7DD1', '#3FA66B', '#B5622A', '#6B4FA0', '#1E7A8C']
+
+// Extra options offered in the color-swatch picker (Equipe > editar consultor).
+export const CONSULTANT_COLOR_SWATCHES = [
+  '#2E7DD1',
+  '#3FA66B',
+  '#1E7A8C',
+  '#6B4FA0',
+  '#B5622A',
+  '#5C6BC0',
+  '#0E8A6D',
+  '#946200',
+]

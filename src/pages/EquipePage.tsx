@@ -2,7 +2,9 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { prCadastroProgress } from '../lib/kpi'
+import { toTitleCase } from '../lib/format'
 import type { DailyGoals, Dependent, ExtraGoal, Profile } from '../lib/types'
+import { CONSULTANT_COLOR_SWATCHES } from '../lib/types'
 import { Avatar } from '../components/ui/Avatar'
 
 const DAILY_GOAL_FIELDS: [keyof DailyGoals, string][] = [
@@ -36,7 +38,7 @@ export function EquipePage() {
     setInviteBusy(true)
     setInviteError(null)
     setInviteResult(null)
-    const name = newName.trim()
+    const name = toTitleCase(newName)
     const { error, inviteLink } = await inviteConsultant({ name, email: newEmail.trim() })
     setInviteBusy(false)
     if (error) setInviteError(error)
@@ -180,6 +182,24 @@ export function EquipePage() {
           <div className="flex flex-col gap-4.5">
             <AvatarUploader profile={editing} onUpload={(file) => uploadAvatar(editing.id, file)} />
             <div>
+              <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">COR DE IDENTIFICAÇÃO</div>
+              <div className="flex gap-2 flex-wrap">
+                {CONSULTANT_COLOR_SWATCHES.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => updateConsultant(editing.id, { color })}
+                    className="w-7 h-7 rounded-full"
+                    style={{
+                      background: color,
+                      boxShadow: editing.color === color ? '0 0 0 2px #fff, 0 0 0 4px #1A1D23' : undefined,
+                    }}
+                    aria-label={`Usar cor ${color}`}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
               <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">DADOS PESSOAIS</div>
               <label className="text-xs text-text-muted flex flex-col gap-1 max-w-[200px]">
                 Data de nascimento
@@ -208,7 +228,7 @@ export function EquipePage() {
               <div className="grid grid-cols-2 gap-2.5">
                 <input
                   defaultValue={editing.spouse_name ?? ''}
-                  onBlur={(e) => updateConsultant(editing.id, { spouse_name: e.target.value || null })}
+                  onBlur={(e) => updateConsultant(editing.id, { spouse_name: e.target.value ? toTitleCase(e.target.value) : null })}
                   placeholder="Nome do cônjuge"
                   className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
                 />
@@ -427,7 +447,7 @@ function DependentsEditor({ consultantId, dependents }: { consultantId: string; 
           <div key={d.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
             <input
               defaultValue={d.name}
-              onBlur={(e) => updateDependent(d.id, { name: e.target.value })}
+              onBlur={(e) => updateDependent(d.id, { name: toTitleCase(e.target.value) })}
               className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
             />
             <input
@@ -464,7 +484,7 @@ function DependentsEditor({ consultantId, dependents }: { consultantId: string; 
           type="button"
           onClick={() => {
             if (!name.trim()) return
-            createDependent({ consultant_id: consultantId, name: name.trim(), birth_date: birthDate || null })
+            createDependent({ consultant_id: consultantId, name: toTitleCase(name), birth_date: birthDate || null })
             setName('')
             setBirthDate('')
           }}

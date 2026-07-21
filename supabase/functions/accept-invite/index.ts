@@ -5,7 +5,8 @@
 // Deploy: supabase functions deploy accept-invite
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const CONSULTANT_COLORS = ['#0B2D5B', '#3FA66B', '#B5622A', '#6B4FA0', '#1E7A8C']
+// Kept clearly distinct from the lider's own navy (#0B2D5B) so avatars never look alike.
+const CONSULTANT_COLORS = ['#2E7DD1', '#3FA66B', '#B5622A', '#6B4FA0', '#1E7A8C']
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
