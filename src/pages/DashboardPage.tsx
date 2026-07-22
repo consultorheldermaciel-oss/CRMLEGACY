@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { computeKpis, type Period } from '../lib/kpi'
+import { resolveViewScope } from '../lib/viewScope'
 import { AgendaPanel } from '../components/agenda/AgendaPanel'
 
 const PERIODS: [Period, string][] = [
@@ -16,10 +17,9 @@ export function DashboardPage() {
   const { viewingId } = useUi()
   const [period, setPeriod] = useState<Period>('mes')
 
-  const isGestorView = viewingId === 'gestor'
-  const team = consultants.filter((c) => c.role === 'consultor')
+  const { isGestorView, team, memberIds } = resolveViewScope(consultants, viewingId)
   const scopeConsultants = isGestorView ? team : team.filter((c) => c.id === viewingId)
-  const scopeAppointments = isGestorView ? appointments : appointments.filter((a) => a.consultant_id === viewingId)
+  const scopeAppointments = memberIds ? appointments.filter((a) => memberIds.includes(a.consultant_id)) : appointments
   const kpis = computeKpis(scopeAppointments, scopeConsultants, period, new Date())
 
   const periodSelector = (

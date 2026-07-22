@@ -1,4 +1,7 @@
 export type UserRole = 'diretor' | 'lider' | 'consultor'
+export function isManagerRole(role: UserRole): boolean {
+  return role === 'lider' || role === 'diretor'
+}
 export type AppointmentType = 'abordagem' | 'fechamento' | 'evento'
 export type AppointmentStatus =
   | 'agendado'

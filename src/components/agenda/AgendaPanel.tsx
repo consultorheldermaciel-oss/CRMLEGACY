@@ -4,6 +4,7 @@ import { useCrm } from '../../context/CrmContext'
 import { useUi } from '../../context/UiContext'
 import type { Period } from '../../lib/kpi'
 import type { Appointment } from '../../lib/types'
+import { resolveViewScope } from '../../lib/viewScope'
 import { MonthView } from './MonthView'
 import { WeekView } from './WeekView'
 import { DayView } from './DayView'
@@ -43,10 +44,9 @@ export function AgendaPanel({ period }: { period: Period }) {
   )
 
   if (!profile) return null
-  const isGestorView = viewingId === 'gestor'
-  const team = consultants.filter((c) => c.role === 'consultor')
+  const { isGestorView, team, memberIds } = resolveViewScope(consultants, viewingId)
 
-  const byRole = isGestorView ? appointments : appointments.filter((a) => a.consultant_id === viewingId)
+  const byRole = memberIds ? appointments.filter((a) => memberIds.includes(a.consultant_id)) : appointments
   const scoped = apptTypeFilter === 'todos' ? byRole : byRole.filter((a) => a.type === apptTypeFilter)
 
   function openNewApptModal(consultantIds: string[], date: string, time: string) {

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import type { Anamnese, Appointment } from '../../lib/types'
-import { PRODUCTS } from '../../lib/types'
+import { isManagerRole, PRODUCTS } from '../../lib/types'
 import { apptColor, apptTypeLabel, isOccupied, statusColors, statusLabel } from '../../lib/domain'
 import { dateLabel, dstr, formatCurrencyTyped, parseCurrency, WEEKDAYS } from '../../lib/format'
 import { buildAnamneseSections } from '../../lib/anamnese'
@@ -38,7 +38,7 @@ function googleCalendarUrl(appt: Appointment) {
 export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose: () => void }) {
   const { profile } = useAuth()
   const { consultants, appointments, updateAppointment, deleteAppointment, createAppointment } = useCrm()
-  const canDelete = profile?.role === 'lider' || appt.created_by === profile?.id
+  const canDelete = (profile && isManagerRole(profile.role)) || appt.created_by === profile?.id
   const [remarcarActive, setRemarcarActive] = useState(false)
   const [remarcarDate, setRemarcarDate] = useState<string | null>(null)
   const [showAgendarFechamento, setShowAgendarFechamento] = useState(false)

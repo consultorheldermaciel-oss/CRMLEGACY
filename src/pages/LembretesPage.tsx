@@ -5,6 +5,8 @@ import { useUi } from '../context/UiContext'
 import { taskUrgency } from '../lib/domain'
 import { dateLabel } from '../lib/format'
 import { computeBirthdayReminders } from '../lib/birthdays'
+import { isManagerRole } from '../lib/types'
+import { resolveViewScope } from '../lib/viewScope'
 
 function todayStr() {
   const d = new Date()
@@ -20,13 +22,13 @@ export function LembretesPage() {
   const [date, setDate] = useState('')
 
   if (!profile) return null
-  const isGestor = profile.role === 'lider'
-  const scopedTasks = viewingId === 'gestor' ? tasks : tasks.filter((t) => t.consultant_id === viewingId)
+  const isGestor = isManagerRole(profile.role)
+  const { memberIds } = resolveViewScope(consultants, viewingId)
+  const scopedTasks = memberIds ? tasks.filter((t) => memberIds.includes(t.consultant_id)) : tasks
   const today = todayStr()
 
-  const scopedConsultants = viewingId === 'gestor' ? consultants : consultants.filter((c) => c.id === viewingId)
-  const scopedDependents =
-    viewingId === 'gestor' ? dependents : dependents.filter((d) => d.consultant_id === viewingId)
+  const scopedConsultants = memberIds ? consultants.filter((c) => memberIds.includes(c.id)) : consultants
+  const scopedDependents = memberIds ? dependents.filter((d) => memberIds.includes(d.consultant_id)) : dependents
   const birthdayReminders = computeBirthdayReminders(scopedConsultants, scopedDependents, new Date())
 
   const importantDates = [

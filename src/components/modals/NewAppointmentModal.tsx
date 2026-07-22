@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import type { NewApptSlot } from '../agenda/AgendaPanel'
-import type { Anamnese, AppointmentType } from '../../lib/types'
+import { isManagerRole, type Anamnese, type AppointmentType } from '../../lib/types'
 import { Modal, ModalHeader } from '../ui/Modal'
 import { Chip } from '../ui/Chip'
 import { AnamneseForm } from './AnamneseForm'
@@ -56,14 +56,16 @@ export function NewAppointmentModal({
   const [saving, setSaving] = useState(false)
 
   if (!profile) return null
-  const isLiderCreator = profile.role === 'lider'
+  const isLiderCreator = isManagerRole(profile.role)
   const names = slot.consultantIds
     .map((id) => consultants.find((c) => c.id === id)?.name.split(' ')[0])
     .filter(Boolean)
     .join(', ')
   const slotLabel = `${names} · ${slot.date.split('-').reverse().join('/')} ${slot.time}`
 
-  const lider = consultants.find((c) => c.role === 'lider')
+  // The specific unit's líder — not just any líder — now that more than one can exist.
+  const targetConsultant = consultants.find((c) => c.id === slot.consultantIds[0])
+  const lider = consultants.find((c) => c.role === 'lider' && c.id === targetConsultant?.manager_id)
   const conflict =
     inviteManager && lider
       ? appointments.find(

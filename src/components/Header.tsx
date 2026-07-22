@@ -5,6 +5,7 @@ import type { Screen } from '../context/UiContext'
 import { LogoMark } from './ui/LogoMark'
 import { Avatar } from './ui/Avatar'
 import { computeBirthdayReminders } from '../lib/birthdays'
+import { isManagerRole } from '../lib/types'
 
 function todayStr() {
   const d = new Date()
@@ -18,8 +19,10 @@ export function Header() {
 
   if (!profile) return null
   const isLider = profile.role === 'lider'
+  const isDiretor = profile.role === 'diretor'
+  const isGestor = isManagerRole(profile.role)
 
-  const scopedTasks = isLider ? tasks : tasks.filter((t) => t.consultant_id === profile.id)
+  const scopedTasks = isGestor ? tasks : tasks.filter((t) => t.consultant_id === profile.id)
   const pendingTaskCount = scopedTasks.filter((t) => !t.done).length
   const birthdayReminders = computeBirthdayReminders(consultants, dependents, new Date())
 
@@ -30,15 +33,23 @@ export function Header() {
   const reminderCount =
     reminders.filter((r) => !dismissedReminderIds.has(r.id)).length + todayBirthdays.length + pendingTaskCount
 
+  const liders = consultants.filter((c) => c.role === 'lider')
   const viewingConsultant = viewingId === 'gestor' ? null : consultants.find((c) => c.id === viewingId)
-  const viewingLabel = isLider
+  const viewingIsUnit = viewingConsultant?.role === 'lider'
+  const viewingLabel = isDiretor
     ? viewingId === 'gestor'
-      ? 'Visão: Líder de unidade (toda a equipe)'
-      : `Visão: ${viewingConsultant?.name ?? ''}`
-    : `Visão: ${profile.name}`
+      ? 'Visão: Líder de agência (toda a operação)'
+      : viewingIsUnit
+        ? `Visão: unidade de ${viewingConsultant?.name ?? ''}`
+        : `Visão: ${viewingConsultant?.name ?? ''}`
+    : isLider
+      ? viewingId === 'gestor'
+        ? 'Visão: Líder de unidade (toda a equipe)'
+        : `Visão: ${viewingConsultant?.name ?? ''}`
+      : `Visão: ${profile.name}`
 
   const navDefs: [Screen, string][] = [['dashboard', 'Dashboard']]
-  if (isLider) navDefs.push(['equipe', 'Equipe'])
+  if (isGestor) navDefs.push(['equipe', 'Equipe'])
   else navDefs.push(['remuneracao', 'Minha remuneração'])
   navDefs.push(['lembretes', 'Lembretes'])
 
@@ -64,31 +75,49 @@ export function Header() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {isLider ? (
+            {isGestor ? (
               <>
                 <button
                   type="button"
-                  title="Líder de unidade (toda a equipe)"
+                  title={isDiretor ? 'Líder de agência (toda a operação)' : 'Líder de unidade (toda a equipe)'}
                   onClick={() => setViewingId('gestor')}
                   className="rounded-full p-0.5 shrink-0"
                   style={{ border: `2px solid ${viewingId === 'gestor' ? '#fff' : 'transparent'}` }}
                 >
                   <Avatar profile={profile} size={38} />
                 </button>
-                {consultants
-                  .filter((c) => c.role === 'consultor')
-                  .map((c) => (
+                {isDiretor &&
+                  liders.map((l) => (
                     <button
-                      key={c.id}
+                      key={l.id}
                       type="button"
-                      title={c.name}
-                      onClick={() => setViewingId(c.id)}
+                      title={`Unidade de ${l.name}`}
+                      onClick={() => setViewingId(l.id)}
                       className="rounded-full p-0.5 shrink-0"
-                      style={{ border: `2px solid ${viewingId === c.id ? '#fff' : 'transparent'}` }}
+                      style={{ border: `2px solid ${viewingId === l.id ? '#fff' : 'transparent'}` }}
                     >
-                      <Avatar profile={c} size={38} />
+                      <Avatar profile={l} size={38} />
                     </button>
                   ))}
+                {(isLider || viewingIsUnit) && (
+                  <>
+                    <div className="w-px h-[26px] bg-white/25 mx-0.5" />
+                    {consultants
+                      .filter((c) => c.role === 'consultor' && (isLider || c.manager_id === viewingId))
+                      .map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          title={c.name}
+                          onClick={() => setViewingId(c.id)}
+                          className="rounded-full p-0.5 shrink-0"
+                          style={{ border: `2px solid ${viewingId === c.id ? '#fff' : 'transparent'}` }}
+                        >
+                          <Avatar profile={c} size={38} />
+                        </button>
+                      ))}
+                  </>
+                )}
               </>
             ) : (
               <div title={profile.name} className="rounded-full p-0.5 border-2 border-white shrink-0">
@@ -98,7 +127,7 @@ export function Header() {
 
             <div className="w-px h-[26px] bg-white/25 mx-1" />
 
-            {isLider && (
+            {isGestor && (
               <button
                 type="button"
                 onClick={() => setScreen('equipe')}
