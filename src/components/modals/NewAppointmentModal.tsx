@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import type { NewApptSlot } from '../agenda/AgendaPanel'
@@ -42,7 +42,7 @@ export function NewAppointmentModal({
   onClose: () => void
 }) {
   const { profile } = useAuth()
-  const { consultants, appointments, createAppointment } = useCrm()
+  const { consultants, createAppointment, checkLiderBusy } = useCrm()
   const [type, setType] = useState<AppointmentType>('abordagem')
   const [eventKind, setEventKind] = useState(EVENT_KINDS[0])
   const [eventOther, setEventOther] = useState('')
@@ -50,33 +50,41 @@ export function NewAppointmentModal({
   const [allDay, setAllDay] = useState(false)
   const [repeatWeekly, setRepeatWeekly] = useState(false)
   const [inviteManager, setInviteManager] = useState(false)
+  const [liderBusy, setLiderBusy] = useState(false)
   const [clientName, setClientName] = useState('')
   const [anamnese, setAnamnese] = useState<Anamnese>({})
   const [showAnamnese, setShowAnamnese] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  if (!profile) return null
-  const isLiderCreator = isManagerRole(profile.role)
+  const isLiderCreator = profile ? isManagerRole(profile.role) : false
   const names = slot.consultantIds
     .map((id) => consultants.find((c) => c.id === id)?.name.split(' ')[0])
     .filter(Boolean)
     .join(', ')
   const slotLabel = `${names} · ${slot.date.split('-').reverse().join('/')} ${slot.time}`
 
-  // The specific unit's líder — not just any líder — now that more than one can exist.
-  const targetConsultant = consultants.find((c) => c.id === slot.consultantIds[0])
-  const lider = consultants.find((c) => c.role === 'lider' && c.id === targetConsultant?.manager_id)
-  const conflict =
-    inviteManager && lider
-      ? appointments.find(
-          (a) =>
-            a.date === slot.date &&
-            a.time === slot.time &&
-            a.wants_manager &&
-            !slot.consultantIds.includes(a.consultant_id) &&
-            a.consultant_id === lider.id,
-        )
-      : undefined
+  // A consultor's client never sees another consultor's appointments (by
+  // design), so we can't tell client-side if the lider is already booked at
+  // this slot. lider_busy_at() answers just that yes/no, without leaking
+  // whose appointment it is.
+  useEffect(() => {
+    if (!inviteManager || isGestorAggregate) {
+      setLiderBusy(false)
+      return
+    }
+    let cancelled = false
+    const hour = allDay ? 8 : parseInt(slot.time)
+    const dur = allDay ? 10 : duration
+    checkLiderBusy(slot.date, hour, dur, slot.consultantIds[0]).then((busy) => {
+      if (!cancelled) setLiderBusy(busy)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteManager, isGestorAggregate, slot.date, slot.time, allDay, duration, slot.consultantIds])
+
+  if (!profile) return null
 
   async function handleSave() {
     setSaving(true)
@@ -230,7 +238,7 @@ export function NewAppointmentModal({
             <input type="checkbox" checked={inviteManager} onChange={(e) => setInviteManager(e.target.checked)} />
             Convidar o líder de unidade para participar
           </label>
-          {conflict && (
+          {liderBusy && (
             <div className="bg-[#FBE7E7] text-[#B23030] rounded-lg px-3 py-2 text-[12.5px] font-semibold mb-4">
               ⚠️ O líder já está comprometido nesse horário e pode não conseguir participar.
             </div>

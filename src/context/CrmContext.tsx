@@ -29,6 +29,12 @@ interface CrmState {
     roleToGrant?: 'consultor' | 'lider' | 'diretor'
   }) => Promise<{ error: string | null; inviteLink: string | null }>
   toggleHierarchy: (enabled: boolean) => Promise<{ error: string | null }>
+  checkLiderBusy: (
+    date: string,
+    hour: number,
+    duration: number,
+    excludeConsultantId?: string | null,
+  ) => Promise<boolean>
   createDependent: (payload: { consultant_id: string; name: string; birth_date: string | null }) => Promise<void>
   updateDependent: (id: string, patch: Partial<Dependent>) => Promise<void>
   removeDependent: (id: string) => Promise<void>
@@ -174,6 +180,25 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     return { error: null }
   }
 
+  async function checkLiderBusy(
+    date: string,
+    hour: number,
+    duration: number,
+    excludeConsultantId?: string | null,
+  ) {
+    const { data, error } = await supabase.rpc('lider_busy_at', {
+      p_date: date,
+      p_hour: hour,
+      p_duration: duration,
+      p_exclude_consultant_id: excludeConsultantId ?? null,
+    })
+    if (error) {
+      console.error(error) // eslint-disable-line no-console
+      return false
+    }
+    return Boolean(data)
+  }
+
   async function createDependent(payload: { consultant_id: string; name: string; birth_date: string | null }) {
     const { error } = await supabase.from('dependents').insert(payload)
     if (error) console.error(error) // eslint-disable-line no-console
@@ -223,6 +248,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       createReminder,
       inviteConsultant,
       toggleHierarchy,
+      checkLiderBusy,
       createDependent,
       updateDependent,
       removeDependent,

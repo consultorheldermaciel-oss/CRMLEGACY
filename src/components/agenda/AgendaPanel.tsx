@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import { useUi } from '../../context/UiContext'
 import type { Period } from '../../lib/kpi'
-import type { Appointment } from '../../lib/types'
+import { isManagerRole, type Appointment } from '../../lib/types'
 import { resolveViewScope } from '../../lib/viewScope'
 import { MonthView } from './MonthView'
 import { WeekView } from './WeekView'
@@ -15,6 +15,7 @@ import { ConflictAlertModal } from '../modals/ConflictAlertModal'
 import { ConsultantPickerModal } from '../modals/ConsultantPickerModal'
 import { SlotChooserModal } from '../modals/SlotChooserModal'
 import { SlotChoiceModal } from '../modals/SlotChoiceModal'
+import { BlockAgendaModal } from '../modals/BlockAgendaModal'
 
 export interface NewApptSlot {
   consultantIds: string[]
@@ -42,9 +43,13 @@ export function AgendaPanel({ period }: { period: Period }) {
   const [slotChoiceSlot, setSlotChoiceSlot] = useState<{ consultantId: string; date: string; time: string } | null>(
     null,
   )
+  const [blockAgendaOpen, setBlockAgendaOpen] = useState(false)
 
   if (!profile) return null
   const { isGestorView, team, memberIds } = resolveViewScope(consultants, viewingId)
+  // Month view labels cells by looking up consultant_id in this list — include the
+  // caller so their own self-blocks ("Bloquear minha agenda") resolve to a name too.
+  const monthConsultants = isManagerRole(profile.role) ? [profile, ...team] : team
 
   const byRole = memberIds ? appointments.filter((a) => memberIds.includes(a.consultant_id)) : appointments
   const scoped = apptTypeFilter === 'todos' ? byRole : byRole.filter((a) => a.type === apptTypeFilter)
@@ -67,21 +72,32 @@ export function AgendaPanel({ period }: { period: Period }) {
     <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
       <div className="flex items-center justify-between flex-wrap gap-2.5 mb-4">
         <div className="font-heading font-bold text-[17px]">Agenda</div>
-        <div className="flex gap-1.5 bg-bg p-1 rounded-lg">
-          {FILTER_DEFS.map(([key, label]) => (
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {isManagerRole(profile.role) && (
             <button
-              key={key}
               type="button"
-              onClick={() => setApptTypeFilter(key)}
-              className="rounded-md px-3 py-1.5 text-xs font-semibold"
-              style={{
-                background: apptTypeFilter === key ? '#0B2D5B' : 'transparent',
-                color: apptTypeFilter === key ? '#fff' : '#1A1D23',
-              }}
+              onClick={() => setBlockAgendaOpen(true)}
+              className="bg-[#FBE7E7] text-[#B23030] border-none rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap"
             >
-              {label}
+              🔒 Bloquear minha agenda
             </button>
-          ))}
+          )}
+          <div className="flex gap-1.5 bg-bg p-1 rounded-lg">
+            {FILTER_DEFS.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setApptTypeFilter(key)}
+                className="rounded-md px-3 py-1.5 text-xs font-semibold"
+                style={{
+                  background: apptTypeFilter === key ? '#0B2D5B' : 'transparent',
+                  color: apptTypeFilter === key ? '#fff' : '#1A1D23',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -90,7 +106,7 @@ export function AgendaPanel({ period }: { period: Period }) {
           appointments={scoped}
           allAppointments={byRole}
           viewingId={viewingId}
-          consultants={team}
+          consultants={monthConsultants}
           isGestorView={isGestorView}
           onOpenAppt={setSelectedApptId}
           onDayClickGestor={(date) => setPickerDate(date)}
@@ -123,6 +139,8 @@ export function AgendaPanel({ period }: { period: Period }) {
         />
       )}
       {period === 'ano' && <YearView appointments={scoped} />}
+
+      {blockAgendaOpen && <BlockAgendaModal onClose={() => setBlockAgendaOpen(false)} />}
 
       {newApptSlot && (
         <NewAppointmentModal
