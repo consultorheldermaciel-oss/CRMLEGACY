@@ -26,6 +26,7 @@ interface CrmState {
   inviteConsultant: (payload: {
     name: string
     email: string
+    roleToGrant?: 'consultor' | 'lider' | 'diretor'
   }) => Promise<{ error: string | null; inviteLink: string | null }>
   createDependent: (payload: { consultant_id: string; name: string; birth_date: string | null }) => Promise<void>
   updateDependent: (id: string, patch: Partial<Dependent>) => Promise<void>

@@ -1,4 +1,4 @@
-export type UserRole = 'lider' | 'consultor'
+export type UserRole = 'diretor' | 'lider' | 'consultor'
 export type AppointmentType = 'abordagem' | 'fechamento' | 'evento'
 export type AppointmentStatus =
   | 'agendado'
@@ -28,6 +28,7 @@ export interface ExtraGoal {
 export interface Profile {
   id: string
   role: UserRole
+  manager_id: string | null
   name: string
   color: string
   phone: string | null

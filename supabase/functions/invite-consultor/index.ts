@@ -50,13 +50,38 @@ Deno.serve(async (req) => {
     .select('role')
     .eq('id', caller.id)
     .single()
-  if (callerProfile?.role !== 'lider') {
-    return json({ error: 'Só o líder de unidade pode convidar consultores.' }, 403)
-  }
 
-  const { email, name, appOrigin } = await req.json()
+  const { email, name, appOrigin, roleToGrant: roleToGrantRaw } = await req.json()
   if (!email || !name || !appOrigin) {
     return json({ error: 'Informe nome e e-mail.' }, 400)
+  }
+  const roleToGrant = roleToGrantRaw === 'lider' || roleToGrantRaw === 'diretor' ? roleToGrantRaw : 'consultor'
+
+  let managerId: string | null = null
+  if (roleToGrant === 'consultor') {
+    if (callerProfile?.role !== 'lider') {
+      return json({ error: 'Só o líder de unidade pode convidar consultores.' }, 403)
+    }
+    managerId = caller.id
+  } else if (roleToGrant === 'lider') {
+    if (callerProfile?.role !== 'diretor') {
+      return json({ error: 'Só o líder de agência pode convidar líderes de unidade.' }, 403)
+    }
+    managerId = caller.id
+  } else {
+    // 'diretor' — bootstrap only: a lider may invite the very first líder de
+    // agência, who then sits above them with no manager of their own.
+    if (callerProfile?.role !== 'lider') {
+      return json({ error: 'Só um líder de unidade pode convidar o líder de agência.' }, 403)
+    }
+    const { count } = await admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'diretor')
+    if ((count ?? 0) > 0) {
+      return json({ error: 'Já existe um líder de agência cadastrado.' }, 400)
+    }
+    managerId = null
   }
 
   const { data: existing } = await admin
@@ -74,6 +99,8 @@ Deno.serve(async (req) => {
     email,
     name,
     created_by: caller.id,
+    role_to_grant: roleToGrant,
+    manager_id: managerId,
   })
   if (insertError) {
     return json({ error: insertError.message }, 400)

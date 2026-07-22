@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
   const { data: invite } = await admin
     .from('invites')
-    .select('id, name, email, expires_at, used_at')
+    .select('id, name, email, expires_at, used_at, role_to_grant, manager_id, created_by')
     .eq('token', token)
     .maybeSingle()
 
@@ -58,14 +58,28 @@ Deno.serve(async (req) => {
     return json({ error: createError?.message ?? 'Falha ao criar a conta.' }, 400)
   }
 
-  const { count } = await admin.from('profiles').select('id', { count: 'exact', head: true })
-  const color = CONSULTANT_COLORS[(count ?? 0) % CONSULTANT_COLORS.length]
+  const role = invite.role_to_grant ?? 'consultor'
+  const profileData: Record<string, unknown> = {
+    id: created.user.id,
+    role,
+    name: invite.name,
+    email: invite.email,
+    manager_id: invite.manager_id,
+  }
+  if (role === 'consultor') {
+    const { count } = await admin.from('profiles').select('id', { count: 'exact', head: true })
+    profileData.color = CONSULTANT_COLORS[(count ?? 0) % CONSULTANT_COLORS.length]
+  }
 
-  const { error: profileError } = await admin
-    .from('profiles')
-    .upsert({ id: created.user.id, role: 'consultor', name: invite.name, email: invite.email, color }, { onConflict: 'id' })
+  const { error: profileError } = await admin.from('profiles').upsert(profileData, { onConflict: 'id' })
   if (profileError) {
     return json({ error: profileError.message }, 400)
+  }
+
+  // Bootstrap case: the lider who invited the first líder de agência now
+  // reports to them.
+  if (role === 'diretor' && invite.created_by) {
+    await admin.from('profiles').update({ manager_id: created.user.id }).eq('id', invite.created_by)
   }
 
   await admin.from('invites').update({ used_at: new Date().toISOString() }).eq('id', invite.id)
