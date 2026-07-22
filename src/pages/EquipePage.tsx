@@ -1,11 +1,18 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { prCadastroProgress } from '../lib/kpi'
 import { toTitleCase } from '../lib/format'
-import type { DailyGoals, Dependent, ExtraGoal, Profile } from '../lib/types'
+import type { DailyGoals, Dependent, ExtraGoal, Profile, UserRole } from '../lib/types'
 import { CONSULTANT_COLOR_SWATCHES } from '../lib/types'
 import { Avatar } from '../components/ui/Avatar'
+
+type InviteFn = (payload: {
+  name: string
+  email: string
+  roleToGrant?: 'consultor' | 'lider' | 'diretor'
+}) => Promise<{ error: string | null; inviteLink: string | null }>
 
 const DAILY_GOAL_FIELDS: [keyof DailyGoals, string][] = [
   ['abordagens', 'Abordagens / dia'],
@@ -19,6 +26,7 @@ const DAILY_GOAL_FIELDS: [keyof DailyGoals, string][] = [
 ]
 
 export function EquipePage() {
+  const { profile } = useAuth()
   const { consultants, dependents, removeConsultant, inviteConsultant } = useCrm()
   const { openTaskModal } = useUi()
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -29,7 +37,13 @@ export function EquipePage() {
   const [inviteResult, setInviteResult] = useState<{ name: string; link: string } | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const team = consultants.filter((c) => c.role === 'consultor')
+  if (!profile) return null
+  const isDiretor = profile.role === 'diretor'
+  const managedRole: UserRole = isDiretor ? 'lider' : 'consultor'
+  const roleLabel = isDiretor ? 'líder de unidade' : 'consultor'
+  const roleLabelPlural = isDiretor ? 'Líderes de unidade' : 'Consultores'
+
+  const team = consultants.filter((c) => c.role === managedRole)
   const editing = editingId ? team.find((c) => c.id === editingId) : null
 
   async function handleInvite(e: FormEvent) {
@@ -39,7 +53,7 @@ export function EquipePage() {
     setInviteError(null)
     setInviteResult(null)
     const name = toTitleCase(newName)
-    const { error, inviteLink } = await inviteConsultant({ name, email: newEmail.trim() })
+    const { error, inviteLink } = await inviteConsultant({ name, email: newEmail.trim(), roleToGrant: managedRole })
     setInviteBusy(false)
     if (error) setInviteError(error)
     else {
@@ -68,8 +82,9 @@ export function EquipePage() {
 
   return (
     <div className="grid gap-5 items-start" style={{ gridTemplateColumns: editing ? '360px 1fr' : '1fr' }}>
+      <div className="flex flex-col gap-5">
       <div className="bg-card border border-border rounded-2xl p-4.5">
-        <div className="font-heading font-bold text-[17px] mb-3.5">Consultores</div>
+        <div className="font-heading font-bold text-[17px] mb-3.5">{roleLabelPlural}</div>
         <div className="flex flex-col gap-2 mb-4">
           {team.map((c) => (
             <div
@@ -103,14 +118,16 @@ export function EquipePage() {
               </button>
             </div>
           ))}
-          {team.length === 0 && <div className="text-[12.5px] text-text-faint">Nenhum consultor ainda.</div>}
+          {team.length === 0 && (
+            <div className="text-[12.5px] text-text-faint">Nenhum {roleLabel} ainda.</div>
+          )}
         </div>
         <form onSubmit={handleInvite} className="flex flex-col gap-2">
           <div className="flex gap-2 flex-wrap">
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Nome do novo consultor"
+              placeholder={`Nome do novo ${roleLabel}`}
               className="flex-1 min-w-[140px] border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
             />
             <input
@@ -170,10 +187,16 @@ export function EquipePage() {
         )}
       </div>
 
+      {!isDiretor && (
+        <DiretorLinkCard profile={profile} consultants={consultants} inviteConsultant={inviteConsultant} />
+      )}
+      </div>
+
       {editing && (
         <EditConsultantPanel
           key={editing.id}
           editing={editing}
+          roleLabel={roleLabel}
           dependents={dependents.filter((d) => d.consultant_id === editing.id)}
           onClose={() => setEditingId(null)}
         />
@@ -182,12 +205,113 @@ export function EquipePage() {
   )
 }
 
+function DiretorLinkCard({
+  profile,
+  consultants,
+  inviteConsultant,
+}: {
+  profile: Profile
+  consultants: Profile[]
+  inviteConsultant: InviteFn
+}) {
+  const myDiretor = profile.manager_id ? consultants.find((c) => c.id === profile.manager_id) : null
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ name: string; link: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  if (myDiretor) {
+    return (
+      <div className="bg-card border border-border rounded-2xl p-4.5">
+        <div className="font-heading font-bold text-[15px] mb-1">Líder de agência</div>
+        <div className="text-[12.5px] text-text-muted">Sua unidade está vinculada a {myDiretor.name}.</div>
+      </div>
+    )
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!name.trim() || !email.trim()) return
+    setBusy(true)
+    setError(null)
+    setResult(null)
+    const finalName = toTitleCase(name)
+    const { error, inviteLink } = await inviteConsultant({ name: finalName, email: email.trim(), roleToGrant: 'diretor' })
+    setBusy(false)
+    if (error) setError(error)
+    else if (inviteLink) {
+      setResult({ name: finalName, link: inviteLink })
+      setName('')
+      setEmail('')
+    }
+  }
+
+  async function copyLink(link: string) {
+    await navigator.clipboard.writeText(link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-4.5">
+      <div className="font-heading font-bold text-[15px] mb-1">Líder de agência</div>
+      <div className="text-[12.5px] text-text-muted mb-3">
+        Se existe um líder de agência acima de você, acompanhando várias unidades, convide-o aqui — uma única vez.
+      </div>
+      <form onSubmit={handleSubmit} className="flex gap-2 flex-wrap">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nome do líder de agência"
+          className="flex-1 min-w-[140px] border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+        />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="E-mail para convite"
+          className="flex-1 min-w-[140px] border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="bg-navy text-white border-none rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-60"
+        >
+          {busy ? 'Convidando…' : 'Convidar'}
+        </button>
+      </form>
+      {error && <div className="text-xs font-semibold text-[#B23030] mt-1.5">{error}</div>}
+      {result && (
+        <div className="mt-3 bg-[#EAF0FA] border border-[#C7D7EE] rounded-xl p-3.5 flex flex-col gap-2.5">
+          <div className="text-[12.5px] font-semibold">
+            Convite de {result.name} criado! Envie o link abaixo para ele(a) criar a senha e entrar:
+          </div>
+          <div className="bg-white border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[11.5px] text-text-muted break-all">
+            {result.link}
+          </div>
+          <button
+            type="button"
+            onClick={() => copyLink(result.link)}
+            className="self-start bg-navy text-white border-none rounded-lg px-3 py-2 text-[12.5px] font-semibold"
+          >
+            {copied ? 'Copiado!' : 'Copiar link'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EditConsultantPanel({
   editing,
+  roleLabel,
   dependents,
   onClose,
 }: {
   editing: Profile
+  roleLabel: string
   dependents: Dependent[]
   onClose: () => void
 }) {
@@ -234,7 +358,7 @@ function EditConsultantPanel({
   return (
     <div className="bg-card border border-border rounded-2xl p-5.5">
       <div className="flex items-center justify-between mb-4.5">
-        <div className="font-heading font-bold text-[17px]">Editar consultor — {editing.name}</div>
+        <div className="font-heading font-bold text-[17px]">Editar {roleLabel} — {editing.name}</div>
         <button type="button" onClick={onClose} className="bg-transparent border-none text-xl text-text-faint">
           ×
         </button>
