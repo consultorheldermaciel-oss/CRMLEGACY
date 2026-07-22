@@ -28,6 +28,7 @@ interface CrmState {
     email: string
     roleToGrant?: 'consultor' | 'lider' | 'diretor'
   }) => Promise<{ error: string | null; inviteLink: string | null }>
+  toggleHierarchy: (enabled: boolean) => Promise<{ error: string | null }>
   createDependent: (payload: { consultant_id: string; name: string; birth_date: string | null }) => Promise<void>
   updateDependent: (id: string, patch: Partial<Dependent>) => Promise<void>
   removeDependent: (id: string) => Promise<void>
@@ -165,6 +166,14 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     return { error: null, inviteLink: (data?.inviteLink as string) ?? null }
   }
 
+  async function toggleHierarchy(enabled: boolean) {
+    const { data, error } = await supabase.functions.invoke('toggle-hierarchy', { body: { enabled } })
+    if (error) return { error: await functionErrorMessage(error) }
+    if (data?.error) return { error: data.error as string }
+    await refresh()
+    return { error: null }
+  }
+
   async function createDependent(payload: { consultant_id: string; name: string; birth_date: string | null }) {
     const { error } = await supabase.from('dependents').insert(payload)
     if (error) console.error(error) // eslint-disable-line no-console
@@ -213,6 +222,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       dismissReminder,
       createReminder,
       inviteConsultant,
+      toggleHierarchy,
       createDependent,
       updateDependent,
       removeDependent,

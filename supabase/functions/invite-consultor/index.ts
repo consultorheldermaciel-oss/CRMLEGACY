@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
 
   const { data: callerProfile } = await admin
     .from('profiles')
-    .select('role')
+    .select('role, hierarchy_enabled')
     .eq('id', caller.id)
     .single()
 
@@ -73,6 +73,9 @@ Deno.serve(async (req) => {
     // agência, who then sits above them with no manager of their own.
     if (callerProfile?.role !== 'lider') {
       return json({ error: 'Só um líder de unidade pode convidar o líder de agência.' }, 403)
+    }
+    if (!callerProfile.hierarchy_enabled) {
+      return json({ error: 'Ative a opção "líder de agência" antes de convidar.' }, 403)
     }
     const { count } = await admin
       .from('profiles')

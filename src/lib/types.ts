@@ -32,6 +32,7 @@ export interface Profile {
   id: string
   role: UserRole
   manager_id: string | null
+  hierarchy_enabled: boolean
   name: string
   color: string
   phone: string | null

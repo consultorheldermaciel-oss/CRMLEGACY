@@ -27,7 +27,7 @@ const DAILY_GOAL_FIELDS: [keyof DailyGoals, string][] = [
 
 export function EquipePage() {
   const { profile } = useAuth()
-  const { consultants, dependents, removeConsultant, inviteConsultant } = useCrm()
+  const { consultants, dependents, removeConsultant, inviteConsultant, toggleHierarchy } = useCrm()
   const { openTaskModal } = useUi()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
@@ -188,7 +188,12 @@ export function EquipePage() {
       </div>
 
       {!isDiretor && (
-        <DiretorLinkCard profile={profile} consultants={consultants} inviteConsultant={inviteConsultant} />
+        <DiretorLinkCard
+          profile={profile}
+          consultants={consultants}
+          inviteConsultant={inviteConsultant}
+          toggleHierarchy={toggleHierarchy}
+        />
       )}
       </div>
 
@@ -209,10 +214,12 @@ function DiretorLinkCard({
   profile,
   consultants,
   inviteConsultant,
+  toggleHierarchy,
 }: {
   profile: Profile
   consultants: Profile[]
   inviteConsultant: InviteFn
+  toggleHierarchy: (enabled: boolean) => Promise<{ error: string | null }>
 }) {
   const myDiretor = profile.manager_id ? consultants.find((c) => c.id === profile.manager_id) : null
   const [name, setName] = useState('')
@@ -221,12 +228,39 @@ function DiretorLinkCard({
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ name: string; link: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  const [togglingBusy, setTogglingBusy] = useState(false)
 
   if (myDiretor) {
     return (
       <div className="bg-card border border-border rounded-2xl p-4.5">
         <div className="font-heading font-bold text-[15px] mb-1">Líder de agência</div>
         <div className="text-[12.5px] text-text-muted">Sua unidade está vinculada a {myDiretor.name}.</div>
+      </div>
+    )
+  }
+
+  async function handleToggle() {
+    setTogglingBusy(true)
+    await toggleHierarchy(!profile.hierarchy_enabled)
+    setTogglingBusy(false)
+  }
+
+  if (!profile.hierarchy_enabled) {
+    return (
+      <div className="bg-card border border-border rounded-2xl p-4.5">
+        <div className="font-heading font-bold text-[15px] mb-1">Líder de agência</div>
+        <div className="text-[12.5px] text-text-muted mb-3">
+          Só ative essa opção quando o líder de agência da sua operação estiver realmente pronto para entrar. Depois
+          de ativar, você poderá convidá-lo aqui, uma única vez.
+        </div>
+        <button
+          type="button"
+          disabled={togglingBusy}
+          onClick={handleToggle}
+          className="bg-navy text-white border-none rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-60"
+        >
+          {togglingBusy ? 'Ativando…' : 'Ativar líder de agência'}
+        </button>
       </div>
     )
   }
@@ -256,7 +290,17 @@ function DiretorLinkCard({
 
   return (
     <div className="bg-card border border-border rounded-2xl p-4.5">
-      <div className="font-heading font-bold text-[15px] mb-1">Líder de agência</div>
+      <div className="flex items-center justify-between mb-1">
+        <div className="font-heading font-bold text-[15px]">Líder de agência</div>
+        <button
+          type="button"
+          disabled={togglingBusy}
+          onClick={handleToggle}
+          className="bg-transparent border-none text-[11.5px] text-text-faint font-semibold disabled:opacity-60"
+        >
+          Desativar
+        </button>
+      </div>
       <div className="text-[12.5px] text-text-muted mb-3">
         Se existe um líder de agência acima de você, acompanhando várias unidades, convide-o aqui — uma única vez.
       </div>
