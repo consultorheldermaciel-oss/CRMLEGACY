@@ -52,6 +52,7 @@ export function NewAppointmentModal({
   const [inviteManager, setInviteManager] = useState(false)
   const [clientName, setClientName] = useState('')
   const [anamnese, setAnamnese] = useState<Anamnese>({})
+  const [showAnamnese, setShowAnamnese] = useState(false)
   const [saving, setSaving] = useState(false)
 
   if (!profile) return null
@@ -242,7 +243,28 @@ export function NewAppointmentModal({
         className="w-full border border-[#D8D5CD] rounded-lg px-3.5 py-2.5 text-sm mb-4"
       />
 
-      {type === 'abordagem' && <AnamneseForm draft={anamnese} onChange={setAnamnese} />}
+      {type === 'abordagem' && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => setShowAnamnese((v) => !v)}
+            className="w-full border rounded-lg py-2.5 text-[13px] font-bold flex items-center justify-center gap-2"
+            style={{
+              borderColor: showAnamnese ? '#0B2D5B' : '#D8D5CD',
+              background: showAnamnese ? '#EAF0FA' : '#fff',
+              color: '#0B2D5B',
+            }}
+          >
+            📋 {showAnamnese ? 'Ocultar ADN' : 'Preencher ADN (Análise de Necessidade)'}
+          </button>
+          {!showAnamnese && (
+            <div className="text-[11px] text-text-faint mt-1.5">
+              Opcional agora — você pode preencher depois, direto no card do cliente.
+            </div>
+          )}
+          {showAnamnese && <AnamneseForm draft={anamnese} onChange={setAnamnese} />}
+        </div>
+      )}
 
       <button
         type="button"
