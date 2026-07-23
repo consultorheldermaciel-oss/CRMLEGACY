@@ -365,61 +365,73 @@ export function buildAnamneseBlocks(draft: Anamnese): AnamneseBlock[] {
   return blocks
 }
 
-/** Section a given answer key belongs to, for the grouped read-only view. */
-export function sectionForKey(key: string): string {
-  if (key === 'premium' || key === 'product') return 'Resumo do Compromisso'
-  if (
-    /^(dep\d|conjuge)/.test(key) ||
-    [
-      'nascimento',
-      'altura',
-      'peso',
-      'estadoCivil',
-      'regimeCasamento',
-      'possuiDependentes',
-      'quantosDependentes',
-      'dependenteEspecial',
-    ].includes(key)
-  )
-    return SECTION_DADOS_PESSOAIS
-  if (
-    [
-      'profissao',
-      'renda',
-      'regimeTrabalho',
-      'concursadoIngresso',
-      'concursadoSabePrevidencia',
-      'concursadoRendaEstimada',
-      'viagensConstantes',
-      'afastamento15dias',
-    ].includes(key)
-  )
-    return SECTION_DADOS_PROFISSIONAIS
-  if (
-    /^(hist|doencaCronica)/.test(key) ||
-    [
-      'checkupAnual',
-      'cirurgiaRecente',
-      'cirurgiaDescricao',
-      'cirurgiaSequela',
-      'cirurgiaSequelaDescricao',
-      'fumante',
-      'atividadeFisica',
-      'esporteRadical',
-      'esporteRadicalQual',
-      'esporteRadicalFrequencia',
-      'andaDeMoto',
-      'motoCilindrada',
-    ].includes(key)
-  )
-    return SECTION_DPS
+// Print-only section titles. Deliberately different grouping/order from the
+// live form's topic-based blocks (Dados Pessoais / Profissional / DPS /
+// Patrimonial): the printed ADN groups everything about the client
+// (bio + DPS/health/habits) first, then family history, then cônjuge, then
+// each dependent, then the financial-needs questions — per explicit request.
+const PRINT_SECTION_CLIENTE = 'Dados do Cliente'
+const PRINT_SECTION_PROFISSIONAL = 'Dados Profissionais'
+const PRINT_SECTION_HISTORICO = 'Histórico Familiar'
+const PRINT_SECTION_CONJUGE = 'Cônjuge'
+const PRINT_SECTION_DEPENDENTES = 'Dependentes'
+const PRINT_SECTION_PATRIMONIAL = 'Necessidades Financeiras e Sucessão'
+const PRINT_SECTION_OUTRAS = 'Outras Informações'
+const PRINT_SECTION_RESUMO = 'Resumo do Compromisso'
+
+const CLIENTE_KEYS = [
+  'nascimento',
+  'altura',
+  'peso',
+  'estadoCivil',
+  'possuiDependentes',
+  'quantosDependentes',
+  'dependenteEspecial',
+  'checkupAnual',
+  'cirurgiaRecente',
+  'cirurgiaDescricao',
+  'cirurgiaSequela',
+  'cirurgiaSequelaDescricao',
+  'fumante',
+  'atividadeFisica',
+  'esporteRadical',
+  'esporteRadicalQual',
+  'esporteRadicalFrequencia',
+  'andaDeMoto',
+  'motoCilindrada',
+]
+const PROFISSIONAL_KEYS = [
+  'profissao',
+  'renda',
+  'regimeTrabalho',
+  'concursadoIngresso',
+  'concursadoSabePrevidencia',
+  'concursadoRendaEstimada',
+  'viagensConstantes',
+  'afastamento15dias',
+]
+
+/** Where a key prints, and — for cônjuge / dependentes / histórico familiar —
+ * which named sub-group within that section it belongs to. */
+function classifyForPrint(key: string): { section: string; group: string | null } {
+  if (key === 'premium' || key === 'product') return { section: PRINT_SECTION_RESUMO, group: null }
+  if (key.startsWith('conjuge') || key === 'regimeCasamento') return { section: PRINT_SECTION_CONJUGE, group: null }
+  const depMatch = key.match(/^dep(\d+)/)
+  if (depMatch) return { section: PRINT_SECTION_DEPENDENTES, group: `Dependente ${depMatch[1]}` }
+  if (key === 'histFamiliares') return { section: PRINT_SECTION_HISTORICO, group: null }
+  if (key.startsWith('histDoenca_')) {
+    const slug = key.slice('histDoenca_'.length).split('_')[0]
+    return { section: PRINT_SECTION_HISTORICO, group: `Histórico — ${slug}` }
+  }
+  if (key.startsWith('doencaCronica') || CLIENTE_KEYS.includes(key)) return { section: PRINT_SECTION_CLIENTE, group: null }
+  if (PROFISSIONAL_KEYS.includes(key)) return { section: PRINT_SECTION_PROFISSIONAL, group: null }
   if (
     /^(patrimonio|dividas|tempoProtecaoRenda|possuiPatrimonio|possuiEmpresa|empresa|possuiSocio|quantosSocios|percentualSocio|bensInventario|custoManutencaoPadraoVida|representatividadeCliente)/.test(
       key,
     )
   )
-    return SECTION_PATRIMONIAL
-  return 'Outras Informações'
+    return { section: PRINT_SECTION_PATRIMONIAL, group: null }
+  return { section: PRINT_SECTION_OUTRAS, group: null }
 }
 
 function prettifyKey(key: string): string {
@@ -455,10 +467,17 @@ const MAXIMAL_DRAFT: Anamnese = {
   possuiSocio: 'Sim',
 }
 
-// doencaCronicaMedicamentoso forks two mutually exclusive branches — build
-// the index from both so "Qual o tratamento realizado?" (the 'Não' side)
-// resolves too.
-const MAXIMAL_DRAFT_VARIANTS: Anamnese[] = [MAXIMAL_DRAFT, { ...MAXIMAL_DRAFT, doencaCronicaMedicamentoso: 'Não' }]
+// doencaCronicaMedicamentoso forks two mutually exclusive branches, and each
+// histFamiliares option produces its own dynamically-worded question ("Qual
+// doença teve o(a) Mãe?") — build the index from all of them so every
+// family member's label resolves to the real authored text.
+const ALL_DOENCAS = ['Câncer', 'Diabetes', 'Pressão Alta', 'Doença Cardiológica', 'Doença Neurológica', 'Outro']
+const MAXIMAL_DRAFT_VARIANTS: Anamnese[] = [
+  MAXIMAL_DRAFT,
+  { ...MAXIMAL_DRAFT, doencaCronicaMedicamentoso: 'Não' },
+  { ...MAXIMAL_DRAFT, histFamiliares: ['Mãe'], histDoenca_Mãe: ALL_DOENCAS },
+  { ...MAXIMAL_DRAFT, histFamiliares: ['Irmão(s)'], histDoenca_Irmãos: ALL_DOENCAS },
+]
 
 // The label text for dep{n}Nome/Idade/Custo never varies by n, so a fixed
 // index built from one dependent (above) already covers every index.
@@ -481,17 +500,7 @@ function labelFor(key: string): string {
   return prettifyKey(key)
 }
 
-/** null for fields that print inline; a group name for fields that should
- * be visually clustered under their own sub-header (cônjuge, one per
- * dependent) instead of mixed in with everything else in their section. */
-function groupForKey(key: string): string | null {
-  if (key.startsWith('conjuge')) return 'Cônjuge'
-  const depMatch = key.match(/^dep(\d+)/)
-  if (depMatch) return `Dependente ${depMatch[1]}`
-  return null
-}
-
-// Keeps nascimento/altura/peso together and first within Dados Pessoais,
+// Keeps nascimento/altura/peso together and first within Dados do Cliente,
 // regardless of the order the consultor happened to fill in the live form.
 const PRIORITY_KEYS = ['nascimento', 'altura', 'peso']
 function sortByPriority(items: { key: string; label: string; value: string }[]) {
@@ -512,22 +521,26 @@ export interface AnamneseSection {
   groups: AnamneseGroup[]
 }
 
-const SECTION_ORDER = [
-  SECTION_DADOS_PESSOAIS,
-  SECTION_DADOS_PROFISSIONAIS,
-  SECTION_DPS,
-  SECTION_PATRIMONIAL,
-  'Outras Informações',
-  'Resumo do Compromisso',
+const PRINT_SECTION_ORDER = [
+  PRINT_SECTION_CLIENTE,
+  PRINT_SECTION_PROFISSIONAL,
+  PRINT_SECTION_HISTORICO,
+  PRINT_SECTION_CONJUGE,
+  PRINT_SECTION_DEPENDENTES,
+  PRINT_SECTION_PATRIMONIAL,
+  PRINT_SECTION_OUTRAS,
+  PRINT_SECTION_RESUMO,
 ]
 
-function groupSortKey(title: string): [number, number] {
-  if (title === 'Cônjuge') return [0, 0]
-  const m = title.match(/^Dependente (\d+)$/)
-  return m ? [1, Number(m[1])] : [2, 0]
+function groupSortKey(title: string): number {
+  const dep = title.match(/^Dependente (\d+)$/)
+  if (dep) return Number(dep[1])
+  return 0
 }
 
-/** Groups a saved anamnese record into the 4 (+ summary) sections for the read/print view. */
+/** Groups a saved anamnese record for the read/print view, in a fixed order:
+ * client's own data first, then family history, cônjuge, dependentes, and
+ * finally financial-needs questions. */
 export function buildAnamneseSections(
   anamnese: Anamnese,
   premium?: number | null,
@@ -539,9 +552,8 @@ export function buildAnamneseSections(
   Object.entries(anamnese || {}).forEach(([key, value]) => {
     if (value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return
     const label = labelFor(key)
-    const sec = sectionForKey(key)
+    const { section: sec, group: groupTitle } = classifyForPrint(key)
     const displayValue = Array.isArray(value) ? value.join(', ') : String(value)
-    const groupTitle = groupForKey(key)
     if (groupTitle) {
       groups[sec] = groups[sec] || {}
       ;(groups[sec][groupTitle] = groups[sec][groupTitle] || []).push({ key, label, value: displayValue })
@@ -551,21 +563,17 @@ export function buildAnamneseSections(
   })
 
   if (premium) {
-    ;(flat['Resumo do Compromisso'] = flat['Resumo do Compromisso'] || []).push(
+    ;(flat[PRINT_SECTION_RESUMO] = flat[PRINT_SECTION_RESUMO] || []).push(
       { key: 'premium', label: 'Prêmio mensal', value: `R$ ${premium.toLocaleString('pt-BR')}` },
       { key: 'product', label: 'Produto', value: product || '—' },
     )
   }
 
-  return SECTION_ORDER.filter((s) => flat[s]?.length || groups[s]).map((s) => ({
+  return PRINT_SECTION_ORDER.filter((s) => flat[s]?.length || groups[s]).map((s) => ({
     title: s,
     items: sortByPriority(flat[s] ?? []).map(({ label, value }) => ({ label, value })),
     groups: Object.entries(groups[s] ?? {})
-      .sort(([a], [b]) => {
-        const [ra, na] = groupSortKey(a)
-        const [rb, nb] = groupSortKey(b)
-        return ra - rb || na - nb
-      })
+      .sort(([a], [b]) => groupSortKey(a) - groupSortKey(b) || a.localeCompare(b))
       .map(([title, items]) => ({ title, items: items.map(({ label, value }) => ({ label, value })) })),
   }))
 }
