@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import type { Anamnese, Appointment } from '../../lib/types'
-import { isManagerRole, PRODUCTS } from '../../lib/types'
+import { isManagerRole } from '../../lib/types'
+import { METLIFE_PRODUCT_LABELS } from '../../lib/metlifeContract'
 import { apptColor, apptTypeLabel, isOccupied, statusColors, statusLabel } from '../../lib/domain'
 import { dateLabel, dstr, formatCurrencyTyped, parseCurrency, WEEKDAYS } from '../../lib/format'
 import { buildAnamneseSections } from '../../lib/anamnese'
@@ -104,7 +105,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
     await updateAppointment(appt.id, {
       policy_closed: true,
       premium: parseCurrency(premiumInput),
-      product: selectedProduct || 'Vida Individual',
+      product: selectedProduct || METLIFE_PRODUCT_LABELS[0],
     })
   }
 
@@ -300,7 +301,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           <div className="text-[13px] font-semibold mb-2.5">Fechou a apólice?</div>
           <div className="text-xs text-text-muted mb-1.5">Produto</div>
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {PRODUCTS.map((p) => (
+            {METLIFE_PRODUCT_LABELS.map((p) => (
               <button
                 key={p}
                 type="button"

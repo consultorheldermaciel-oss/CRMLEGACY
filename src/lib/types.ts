@@ -45,6 +45,7 @@ export interface Profile {
   contract_start: string
   commission_pct: number
   bonus_per_policy: number
+  contract_template: string | null
   daily_goals: DailyGoals
   extra_goals: ExtraGoal[]
   created_at: string
@@ -113,14 +114,6 @@ export const DEFAULT_DAILY_GOALS: DailyGoals = {
   apolicesEntregues: 0.4,
   premioMedio: 250,
 }
-
-export const PRODUCTS = [
-  'Vida Individual',
-  'Vida em Grupo',
-  'Vida com Resgate (VGBL/Previdência)',
-  'Prestamista',
-  'Acidentes Pessoais',
-]
 
 // Kept clearly distinct from the lider's own navy (#0B2D5B) so avatars never look alike.
 export const CONSULTANT_COLORS = ['#2E7DD1', '#3FA66B', '#B5622A', '#6B4FA0', '#1E7A8C']

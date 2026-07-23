@@ -500,6 +500,20 @@ function EditConsultantPanel({
           </div>
         </div>
         <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CONTRATO DE COMISSIONAMENTO</div>
+          <select
+            value={editing.contract_template ?? ''}
+            onChange={(e) => updateConsultant(editing.id, { contract_template: e.target.value || null })}
+            className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px] w-full"
+          >
+            <option value="">Nenhum ainda (mostra "em breve" pra ele)</option>
+            <option value="metlife_2025">MetLife — Programa de Relacionamento (maio/2025)</option>
+          </select>
+          <div className="text-[11px] text-text-faint mt-1.5">
+            Define como a tela "Minha remuneração" calcula os valores dele.
+          </div>
+        </div>
+        <div>
           <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">PR CADASTRO — MÊS {pr.month} DE 17</div>
           <div className="grid grid-cols-2 gap-3">
             <div>

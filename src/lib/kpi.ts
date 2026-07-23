@@ -1,5 +1,6 @@
 import type { Appointment, DailyGoals, Profile } from './types'
 import { fmtBRL } from './format'
+import { ageAtFromBrDate, firstYearCommissionPct } from './metlifeContract'
 
 export type Period = 'dia' | 'semana' | 'mes' | 'ano'
 
@@ -194,16 +195,51 @@ export function prCadastroProgress(contractStart: string, today: Date) {
   }
 }
 
+/** Comissão de 1º ano per the MetLife contract: product + client age (at
+ * closing) determine the %, applied to the premium of each closed policy. */
+function metlifeFirstYearCommission(closed: Appointment[], today: Date) {
+  let total = 0
+  let unresolved = 0
+  for (const a of closed) {
+    const age = ageAtFromBrDate(a.anamnese?.nascimento as string | undefined, today)
+    const pct = a.product && age !== null ? firstYearCommissionPct(a.product, age) : null
+    if (pct === null) {
+      unresolved++
+      continue
+    }
+    total += ((a.premium || 0) * pct) / 100
+  }
+  return { total, unresolved }
+}
+
 export function remuneracaoProjetada(
   consultant: Profile,
   appointmentsThisMonth: Appointment[],
   today: Date,
 ) {
   const closed = appointmentsThisMonth.filter((a) => a.policy_closed)
+  const pr = prCadastroProgress(consultant.contract_start, today)
+
+  if (consultant.contract_template === 'metlife_2025') {
+    const { total: commission, unresolved } = metlifeFirstYearCommission(closed, today)
+    const total = Math.round(commission + pr.bonusValue)
+    return {
+      total,
+      breakdown: [
+        { label: 'Comissão de 1º ano', value: fmtBRL(Math.round(commission)) },
+        { label: 'PR Cadastro', value: fmtBRL(pr.bonusValue) },
+      ],
+      pr,
+      commissionNote:
+        unresolved > 0
+          ? `${unresolved} apólice${unresolved > 1 ? 's' : ''} sem idade do cliente ou produto reconhecido — não entraram no cálculo.`
+          : undefined,
+    }
+  }
+
   const commission = closed.reduce((sum, a) => sum + ((a.premium || 0) * consultant.commission_pct) / 100, 0)
   const bonusPolicy = closed.length * consultant.bonus_per_policy
   const bonusMetas = consultant.extra_goals.reduce((sum, g) => sum + (g.pct >= 100 ? 120 : 0), 0) || 480
-  const pr = prCadastroProgress(consultant.contract_start, today)
   const total = Math.round(commission + bonusPolicy + bonusMetas + pr.bonusValue)
   return {
     total,
@@ -214,5 +250,6 @@ export function remuneracaoProjetada(
       { label: 'PR Cadastro', value: fmtBRL(pr.bonusValue) },
     ],
     pr,
+    commissionNote: undefined as string | undefined,
   }
 }
