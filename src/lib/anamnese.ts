@@ -256,8 +256,34 @@ export function buildAnamneseBlocks(draft: Anamnese): AnamneseBlock[] {
   })
 
   const patrimonioItems: AnamneseItem[] = [
-    RADIO('possuiPatrimonio', 'Possui patrimônio (imóveis, automóveis, aplicações)?', ['Sim', 'Não']),
+    T('custoManutencaoPadraoVida', 'Qual o custo mensal para manter o padrão de vida da família (R$)?', 'currency'),
+    T('representatividadeCliente', 'Sua representatividade financeira no orçamento da família (%)'),
   ]
+  if (has(draft, 'estadoCivil', 'Casado') || has(draft, 'estadoCivil', 'União Estável')) {
+    patrimonioItems.push(
+      RADIO('conjugeContribuiFinanceiramente', 'O cônjuge/parceiro(a) contribui financeiramente para dentro do lar?', [
+        'Sim',
+        'Não',
+      ]),
+    )
+    if (has(draft, 'conjugeContribuiFinanceiramente', 'Sim')) {
+      patrimonioItems.push(
+        T('conjugeRepresentatividade', 'Representatividade financeira do cônjuge no orçamento da família (%)'),
+        T('conjugeRenda', 'Renda mensal do cônjuge (R$)', 'currency'),
+        RADIO('conjugeVinculoEmpregaticio', 'Vínculo empregatício do cônjuge', [
+          'CLT',
+          'Autônomo / Profissional Liberal',
+          'Empresário',
+          'Concursado',
+          'Não trabalha atualmente',
+          'Outro',
+        ]),
+      )
+    }
+  }
+  patrimonioItems.push(
+    RADIO('possuiPatrimonio', 'Possui patrimônio (imóveis, automóveis, aplicações)?', ['Sim', 'Não']),
+  )
   if (has(draft, 'possuiPatrimonio', 'Sim')) {
     patrimonioItems.push(
       T('patrimonioImoveis', 'Imóveis — valor total estimado (R$)', 'currency'),
@@ -308,7 +334,16 @@ export function sectionForKey(key: string): string {
   if (key === 'premium' || key === 'product') return 'Resumo do Compromisso'
   if (
     /^(dep\d|conjuge)/.test(key) ||
-    ['nascimento', 'estadoCivil', 'regimeCasamento', 'possuiDependentes', 'quantosDependentes', 'dependenteEspecial'].includes(key)
+    [
+      'nascimento',
+      'altura',
+      'peso',
+      'estadoCivil',
+      'regimeCasamento',
+      'possuiDependentes',
+      'quantosDependentes',
+      'dependenteEspecial',
+    ].includes(key)
   )
     return SECTION_DADOS_PESSOAIS
   if (
@@ -327,8 +362,6 @@ export function sectionForKey(key: string): string {
   if (
     /^hist/.test(key) ||
     [
-      'peso',
-      'altura',
       'checkupAnual',
       'doencaCronica',
       'doencaCronicaQual',
@@ -351,7 +384,11 @@ export function sectionForKey(key: string): string {
     ].includes(key)
   )
     return SECTION_DPS
-  if (/^(patrimonio|dividas|tempoProtecaoRenda|possuiPatrimonio|possuiEmpresa|empresa|possuiSocio|quantosSocios|percentualSocio|bensInventario)/.test(key))
+  if (
+    /^(patrimonio|dividas|tempoProtecaoRenda|possuiPatrimonio|possuiEmpresa|empresa|possuiSocio|quantosSocios|percentualSocio|bensInventario|custoManutencaoPadraoVida|representatividadeCliente)/.test(
+      key,
+    )
+  )
     return SECTION_PATRIMONIAL
   return 'Outras Informações'
 }
@@ -361,19 +398,77 @@ function prettifyKey(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-const labelIndex = new Map<string, string>()
-function labelFor(key: string): string {
-  if (labelIndex.has(key)) return labelIndex.get(key) as string
-  // populate the index once from a throwaway build of the full question tree
-  buildAnamneseBlocks({}).forEach((b) =>
-    b.items.forEach((it) => labelIndex.set(it.key, it.label)),
-  )
-  return labelIndex.get(key) ?? prettifyKey(key)
+// A draft that satisfies every conditional branch at once, so labelFor's
+// index below picks up every question's real label — not just the ones
+// visible from an empty draft.
+const MAXIMAL_DRAFT: Anamnese = {
+  estadoCivil: 'Casado',
+  possuiDependentes: 'Sim',
+  quantosDependentes: '1',
+  conjugeContribuiFinanceiramente: 'Sim',
+  regimeTrabalho: 'Concursado',
+  concursadoSabePrevidencia: 'Sim',
+  doencaCronica: 'Sim',
+  cirurgiaRecente: 'Sim',
+  cirurgiaSequela: 'Sim',
+  esporteRadical: 'Sim',
+  andaDeMoto: 'Sim',
+  histFamiliares: ['Pai'],
+  histDoenca_Pai: ['Câncer', 'Doença Cardiológica', 'Doença Neurológica', 'Outro'],
+  possuiPatrimonio: 'Sim',
+  dividasLongoPrazo: 'Sim',
+  possuiEmpresa: 'Sim',
+  possuiSocio: 'Sim',
 }
 
+// The label text for dep{n}Nome/Idade/Custo never varies by n, so a fixed
+// index built from one dependent (above) already covers every index.
+const DEP_FIELD_LABELS: Record<string, string> = {
+  Nome: 'Nome do dependente',
+  Idade: 'Idade',
+  Custo: 'Custo mensal com educação / atividades extras (R$, caso haja)',
+}
+
+const labelIndex = new Map<string, string>()
+function labelFor(key: string): string {
+  if (labelIndex.size === 0) {
+    buildAnamneseBlocks(MAXIMAL_DRAFT).forEach((b) => b.items.forEach((it) => labelIndex.set(it.key, it.label)))
+  }
+  if (labelIndex.has(key)) return labelIndex.get(key) as string
+  const depMatch = key.match(/^dep\d+(Nome|Idade|Custo)$/)
+  if (depMatch) return DEP_FIELD_LABELS[depMatch[1]]
+  return prettifyKey(key)
+}
+
+/** null for fields that print inline; a group name for fields that should
+ * be visually clustered under their own sub-header (cônjuge, one per
+ * dependent) instead of mixed in with everything else in their section. */
+function groupForKey(key: string): string | null {
+  if (key.startsWith('conjuge')) return 'Cônjuge'
+  const depMatch = key.match(/^dep(\d+)/)
+  if (depMatch) return `Dependente ${depMatch[1]}`
+  return null
+}
+
+// Keeps nascimento/altura/peso together and first within Dados Pessoais,
+// regardless of the order the consultor happened to fill in the live form.
+const PRIORITY_KEYS = ['nascimento', 'altura', 'peso']
+function sortByPriority(items: { key: string; label: string; value: string }[]) {
+  return [...items].sort((a, b) => {
+    const ra = PRIORITY_KEYS.indexOf(a.key)
+    const rb = PRIORITY_KEYS.indexOf(b.key)
+    return (ra === -1 ? PRIORITY_KEYS.length : ra) - (rb === -1 ? PRIORITY_KEYS.length : rb)
+  })
+}
+
+export interface AnamneseGroup {
+  title: string
+  items: { label: string; value: string }[]
+}
 export interface AnamneseSection {
   title: string
   items: { label: string; value: string }[]
+  groups: AnamneseGroup[]
 }
 
 const SECTION_ORDER = [
@@ -385,25 +480,51 @@ const SECTION_ORDER = [
   'Resumo do Compromisso',
 ]
 
+function groupSortKey(title: string): [number, number] {
+  if (title === 'Cônjuge') return [0, 0]
+  const m = title.match(/^Dependente (\d+)$/)
+  return m ? [1, Number(m[1])] : [2, 0]
+}
+
 /** Groups a saved anamnese record into the 4 (+ summary) sections for the read/print view. */
 export function buildAnamneseSections(
   anamnese: Anamnese,
   premium?: number | null,
   product?: string | null,
 ): AnamneseSection[] {
-  const grouped: Record<string, { label: string; value: string }[]> = {}
+  const flat: Record<string, { key: string; label: string; value: string }[]> = {}
+  const groups: Record<string, Record<string, { key: string; label: string; value: string }[]>> = {}
+
   Object.entries(anamnese || {}).forEach(([key, value]) => {
     if (value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) return
     const label = labelFor(key)
     const sec = sectionForKey(key)
     const displayValue = Array.isArray(value) ? value.join(', ') : String(value)
-    ;(grouped[sec] = grouped[sec] || []).push({ label, value: displayValue })
+    const groupTitle = groupForKey(key)
+    if (groupTitle) {
+      groups[sec] = groups[sec] || {}
+      ;(groups[sec][groupTitle] = groups[sec][groupTitle] || []).push({ key, label, value: displayValue })
+    } else {
+      ;(flat[sec] = flat[sec] || []).push({ key, label, value: displayValue })
+    }
   })
+
   if (premium) {
-    ;(grouped['Resumo do Compromisso'] = grouped['Resumo do Compromisso'] || []).push(
-      { label: 'Prêmio mensal', value: `R$ ${premium.toLocaleString('pt-BR')}` },
-      { label: 'Produto', value: product || '—' },
+    ;(flat['Resumo do Compromisso'] = flat['Resumo do Compromisso'] || []).push(
+      { key: 'premium', label: 'Prêmio mensal', value: `R$ ${premium.toLocaleString('pt-BR')}` },
+      { key: 'product', label: 'Produto', value: product || '—' },
     )
   }
-  return SECTION_ORDER.filter((s) => grouped[s]?.length).map((s) => ({ title: s, items: grouped[s] }))
+
+  return SECTION_ORDER.filter((s) => flat[s]?.length || groups[s]).map((s) => ({
+    title: s,
+    items: sortByPriority(flat[s] ?? []).map(({ label, value }) => ({ label, value })),
+    groups: Object.entries(groups[s] ?? {})
+      .sort(([a], [b]) => {
+        const [ra, na] = groupSortKey(a)
+        const [rb, nb] = groupSortKey(b)
+        return ra - rb || na - nb
+      })
+      .map(([title, items]) => ({ title, items: items.map(({ label, value }) => ({ label, value })) })),
+  }))
 }
