@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
@@ -5,7 +6,7 @@ import type { Screen } from '../context/UiContext'
 import { LogoMark } from './ui/LogoMark'
 import { Avatar } from './ui/Avatar'
 import { computeBirthdayReminders } from '../lib/birthdays'
-import { isManagerRole } from '../lib/types'
+import { CONSULTANT_COLOR_SWATCHES, isManagerRole } from '../lib/types'
 
 function todayStr() {
   const d = new Date()
@@ -14,10 +15,22 @@ function todayStr() {
 
 export function Header() {
   const { profile, signOut } = useAuth()
-  const { consultants, reminders, dependents, tasks, dismissedReminderIds, dismissReminder } = useCrm()
+  const { consultants, reminders, dependents, tasks, dismissedReminderIds, dismissReminder, updateMyColor } = useCrm()
   const { viewingId, setViewingId, screen, setScreen } = useUi()
+  const [showColorPicker, setShowColorPicker] = useState(false)
+  const [colorBusy, setColorBusy] = useState(false)
+  const [colorError, setColorError] = useState<string | null>(null)
 
   if (!profile) return null
+
+  async function handlePickColor(color: string) {
+    setColorBusy(true)
+    setColorError(null)
+    const { error } = await updateMyColor(color)
+    setColorBusy(false)
+    if (error) setColorError(error)
+    else setShowColorPicker(false)
+  }
   const isLider = profile.role === 'lider'
   const isDiretor = profile.role === 'diretor'
   const isGestor = isManagerRole(profile.role)
@@ -120,8 +133,37 @@ export function Header() {
                 )}
               </>
             ) : (
-              <div title={profile.name} className="rounded-full p-0.5 border-2 border-white shrink-0">
-                <Avatar profile={profile} size={38} />
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  title="Escolher minha cor"
+                  onClick={() => setShowColorPicker((v) => !v)}
+                  className="rounded-full p-0.5 border-2 border-white shrink-0"
+                >
+                  <Avatar profile={profile} size={38} />
+                </button>
+                {showColorPicker && (
+                  <div className="absolute top-full mt-2 left-0 bg-white rounded-xl shadow-lg p-3 z-50 w-[190px]">
+                    <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">SUA COR</div>
+                    <div className="flex gap-2 flex-wrap">
+                      {CONSULTANT_COLOR_SWATCHES.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          disabled={colorBusy}
+                          onClick={() => handlePickColor(color)}
+                          className="w-7 h-7 rounded-full disabled:opacity-60"
+                          style={{
+                            background: color,
+                            boxShadow: profile.color === color ? '0 0 0 2px #fff, 0 0 0 4px #1A1D23' : undefined,
+                          }}
+                          aria-label={`Usar cor ${color}`}
+                        />
+                      ))}
+                    </div>
+                    {colorError && <div className="text-[11px] text-[#B23030] font-semibold mt-2">{colorError}</div>}
+                  </div>
+                )}
               </div>
             )}
 
