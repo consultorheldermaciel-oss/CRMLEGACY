@@ -170,13 +170,49 @@ export function buildAnamneseBlocks(draft: Anamnese): AnamneseBlock[] {
   ]
   if (has(draft, 'doencaCronica', 'Sim')) {
     saudeItems.push(
-      T('doencaCronicaQual', 'Qual o diagnóstico?'),
-      T('doencaCronicaData', 'Data do diagnóstico', 'date'),
-      T('doencaCronicaTratamento', 'Qual o tratamento realizado?'),
-      T('doencaCronicaMedicamento', 'Qual medicamento toma?'),
-      T('doencaCronicaGramatura', 'Gramatura do medicamento'),
-      T('doencaCronicaFrequencia', 'Com que frequência toma?'),
+      MULTI('doencaCronicaTipos', 'Qual(is) doença(s) crônica(s) possui? (pode marcar mais de uma)', [
+        'Câncer',
+        'Diabetes',
+        'Pressão Alta',
+        'Doença Cardiológica',
+        'Doença Neurológica',
+        'Outro',
+      ]),
     )
+    if (has(draft, 'doencaCronicaTipos', 'Câncer')) {
+      saudeItems.push(MULTI('doencaCronicaCancerTipos', 'Qual tipo de câncer?', CANCER_TIPOS))
+      if (has(draft, 'doencaCronicaCancerTipos', 'Outro')) {
+        saudeItems.push(T('doencaCronicaCancerOutro', 'Qual outro tipo de câncer?'))
+      }
+    }
+    if (has(draft, 'doencaCronicaTipos', 'Doença Cardiológica')) {
+      saudeItems.push(MULTI('doencaCronicaCardioTipos', 'Qual doença cardiológica?', CARDIO_TIPOS))
+      if (has(draft, 'doencaCronicaCardioTipos', 'Outro')) {
+        saudeItems.push(T('doencaCronicaCardioOutro', 'Qual outra doença cardiológica?'))
+      }
+    }
+    if (has(draft, 'doencaCronicaTipos', 'Doença Neurológica')) {
+      saudeItems.push(MULTI('doencaCronicaNeuroTipos', 'Qual doença neurológica?', NEURO_TIPOS))
+      if (has(draft, 'doencaCronicaNeuroTipos', 'Outro')) {
+        saudeItems.push(T('doencaCronicaNeuroOutro', 'Qual outra doença neurológica?'))
+      }
+    }
+    if (has(draft, 'doencaCronicaTipos', 'Outro')) {
+      saudeItems.push(T('doencaCronicaOutroQual', 'Qual outra doença?'))
+    }
+    saudeItems.push(
+      T('doencaCronicaData', 'Data do diagnóstico', 'date'),
+      RADIO('doencaCronicaMedicamentoso', 'O tratamento é medicamentoso?', ['Sim', 'Não']),
+    )
+    if (has(draft, 'doencaCronicaMedicamentoso', 'Sim')) {
+      saudeItems.push(
+        T('doencaCronicaMedicamento', 'Qual medicamento toma?'),
+        T('doencaCronicaGramatura', 'Gramatura do medicamento'),
+        T('doencaCronicaFrequencia', 'Com que frequência toma?'),
+      )
+    } else if (has(draft, 'doencaCronicaMedicamentoso', 'Não')) {
+      saudeItems.push(T('doencaCronicaTratamento', 'Qual o tratamento realizado?'))
+    }
   }
   saudeItems.push(
     RADIO('cirurgiaRecente', 'Passou por cirurgia, internação ou exames complexos nos últimos 5 anos?', [
@@ -360,16 +396,9 @@ export function sectionForKey(key: string): string {
   )
     return SECTION_DADOS_PROFISSIONAIS
   if (
-    /^hist/.test(key) ||
+    /^(hist|doencaCronica)/.test(key) ||
     [
       'checkupAnual',
-      'doencaCronica',
-      'doencaCronicaQual',
-      'doencaCronicaData',
-      'doencaCronicaTratamento',
-      'doencaCronicaMedicamento',
-      'doencaCronicaGramatura',
-      'doencaCronicaFrequencia',
       'cirurgiaRecente',
       'cirurgiaDescricao',
       'cirurgiaSequela',
@@ -409,6 +438,11 @@ const MAXIMAL_DRAFT: Anamnese = {
   regimeTrabalho: 'Concursado',
   concursadoSabePrevidencia: 'Sim',
   doencaCronica: 'Sim',
+  doencaCronicaTipos: ['Câncer', 'Doença Cardiológica', 'Doença Neurológica', 'Outro'],
+  doencaCronicaCancerTipos: ['Outro'],
+  doencaCronicaCardioTipos: ['Outro'],
+  doencaCronicaNeuroTipos: ['Outro'],
+  doencaCronicaMedicamentoso: 'Sim',
   cirurgiaRecente: 'Sim',
   cirurgiaSequela: 'Sim',
   esporteRadical: 'Sim',
@@ -421,6 +455,11 @@ const MAXIMAL_DRAFT: Anamnese = {
   possuiSocio: 'Sim',
 }
 
+// doencaCronicaMedicamentoso forks two mutually exclusive branches — build
+// the index from both so "Qual o tratamento realizado?" (the 'Não' side)
+// resolves too.
+const MAXIMAL_DRAFT_VARIANTS: Anamnese[] = [MAXIMAL_DRAFT, { ...MAXIMAL_DRAFT, doencaCronicaMedicamentoso: 'Não' }]
+
 // The label text for dep{n}Nome/Idade/Custo never varies by n, so a fixed
 // index built from one dependent (above) already covers every index.
 const DEP_FIELD_LABELS: Record<string, string> = {
@@ -432,7 +471,9 @@ const DEP_FIELD_LABELS: Record<string, string> = {
 const labelIndex = new Map<string, string>()
 function labelFor(key: string): string {
   if (labelIndex.size === 0) {
-    buildAnamneseBlocks(MAXIMAL_DRAFT).forEach((b) => b.items.forEach((it) => labelIndex.set(it.key, it.label)))
+    MAXIMAL_DRAFT_VARIANTS.forEach((draft) =>
+      buildAnamneseBlocks(draft).forEach((b) => b.items.forEach((it) => labelIndex.set(it.key, it.label))),
+    )
   }
   if (labelIndex.has(key)) return labelIndex.get(key) as string
   const depMatch = key.match(/^dep\d+(Nome|Idade|Custo)$/)
