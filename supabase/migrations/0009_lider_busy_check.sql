@@ -16,7 +16,7 @@ as $$
 $$;
 
 create or replace function public.lider_busy_at(
-  p_date text,
+  p_date date,
   p_hour int,
   p_duration int default 1,
   p_exclude_consultant_id uuid default null
@@ -49,4 +49,4 @@ as $$
 $$;
 
 grant execute on function public.lider_id_for_caller() to authenticated;
-grant execute on function public.lider_busy_at(text, int, int, uuid) to authenticated;
+grant execute on function public.lider_busy_at(date, int, int, uuid) to authenticated;
