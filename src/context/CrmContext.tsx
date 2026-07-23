@@ -35,6 +35,7 @@ interface CrmState {
     duration: number,
     excludeConsultantId?: string | null,
   ) => Promise<boolean>
+  updateMyColor: (color: string) => Promise<{ error: string | null }>
   createDependent: (payload: { consultant_id: string; name: string; birth_date: string | null }) => Promise<void>
   updateDependent: (id: string, patch: Partial<Dependent>) => Promise<void>
   removeDependent: (id: string) => Promise<void>
@@ -199,6 +200,13 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     return Boolean(data)
   }
 
+  async function updateMyColor(color: string) {
+    const { error } = await supabase.rpc('set_own_color', { new_color: color })
+    if (error) return { error: error.message }
+    await refresh()
+    return { error: null }
+  }
+
   async function createDependent(payload: { consultant_id: string; name: string; birth_date: string | null }) {
     const { error } = await supabase.from('dependents').insert(payload)
     if (error) console.error(error) // eslint-disable-line no-console
@@ -249,6 +257,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       inviteConsultant,
       toggleHierarchy,
       checkLiderBusy,
+      updateMyColor,
       createDependent,
       updateDependent,
       removeDependent,

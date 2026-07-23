@@ -1,12 +1,21 @@
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useCrm } from '../context/CrmContext'
 import { remuneracaoProjetada } from '../lib/kpi'
 import { filterByPeriod } from '../lib/kpi'
+import { CONSULTANT_COLOR_SWATCHES } from '../lib/types'
 
 export function RemuneracaoPage() {
   const { profile } = useAuth()
-  const { appointments } = useCrm()
+  const { appointments, updateMyColor } = useCrm()
+  const [colorBusy, setColorBusy] = useState(false)
   if (!profile) return null
+
+  async function handlePickColor(color: string) {
+    setColorBusy(true)
+    await updateMyColor(color)
+    setColorBusy(false)
+  }
 
   const today = new Date()
   const monthAppts = filterByPeriod(
@@ -17,7 +26,12 @@ export function RemuneracaoPage() {
   const rem = remuneracaoProjetada(profile, monthAppts, today)
 
   return (
-    <div className="grid gap-5 items-start" style={{ gridTemplateColumns: 'minmax(0,1.3fr) minmax(0,1fr)' }}>
+    <div className="flex flex-col gap-5">
+      <div className="bg-[#EAF0FA] border border-[#C7D7EE] text-[#0B2D5B] rounded-2xl px-5 py-4 text-[13px] font-semibold">
+        🚀 Em breve: novas formas de acompanhar sua remuneração e seus resultados por aqui.
+      </div>
+
+      <div className="grid gap-5 items-start" style={{ gridTemplateColumns: 'minmax(0,1.3fr) minmax(0,1fr)' }}>
       <div className="rounded-2xl p-6.5 text-white" style={{ background: 'linear-gradient(135deg,#0B2D5B,#123A70)' }}>
         <div className="text-xs tracking-wide text-[#B9C4D6] mb-1.5">VALOR TOTAL PROJETADO (MÊS)</div>
         <div className="font-mono text-4xl font-semibold mb-4.5">
@@ -69,6 +83,30 @@ export function RemuneracaoPage() {
           {profile.extra_goals.length === 0 && (
             <div className="text-[12.5px] text-text-faint">Nenhuma meta extra definida pelo líder ainda.</div>
           )}
+        </div>
+      </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-5 max-w-[420px]">
+        <div className="font-heading font-bold text-[15px] mb-1">Sua cor de identificação</div>
+        <div className="text-[12px] text-text-faint mb-3">
+          Aparece na sua agenda e no avatar — escolha a que preferir.
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {CONSULTANT_COLOR_SWATCHES.map((color) => (
+            <button
+              key={color}
+              type="button"
+              disabled={colorBusy}
+              onClick={() => handlePickColor(color)}
+              className="w-8 h-8 rounded-full disabled:opacity-60"
+              style={{
+                background: color,
+                boxShadow: profile.color === color ? '0 0 0 2px #fff, 0 0 0 4px #1A1D23' : undefined,
+              }}
+              aria-label={`Usar cor ${color}`}
+            />
+          ))}
         </div>
       </div>
     </div>
