@@ -2,12 +2,16 @@ import type { Appointment, AppointmentStatus } from './types'
 import { MONTHS } from './format'
 
 export function apptColor(a: Pick<Appointment, 'type'>): string {
-  return a.type === 'abordagem' ? '#0B2D5B' : a.type === 'fechamento' ? '#3FA66B' : '#6B4FA0'
+  if (a.type === 'abordagem') return '#0B2D5B'
+  if (a.type === 'fechamento') return '#3FA66B'
+  if (a.type === 'entrega') return '#1E7A8C'
+  return '#6B4FA0'
 }
 
 export function apptTypeLabel(a: Pick<Appointment, 'type' | 'event_kind'>): string {
   if (a.type === 'abordagem') return 'Abordagem'
   if (a.type === 'fechamento') return 'Fechamento'
+  if (a.type === 'entrega') return 'Entrega de apólice'
   return a.event_kind || 'Evento interno'
 }
 

@@ -131,6 +131,7 @@ export function NewAppointmentModal({
           [
             ['abordagem', '🤝 Abordagem (1º encontro)', '#0B2D5B'],
             ['fechamento', '✅ Fechamento (2º encontro)', '#3FA66B'],
+            ['entrega', '📦 Entrega de apólice', '#1E7A8C'],
             ...(isLiderCreator ? [['evento', '👔 Outro evento', '#6B4FA0']] : []),
           ] as [AppointmentType, string, string][]
         ).map(([key, label, color]) => (

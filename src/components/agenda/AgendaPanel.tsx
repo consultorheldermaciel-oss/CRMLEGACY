@@ -27,6 +27,7 @@ const FILTER_DEFS: [Appointment['type'] | 'todos', string][] = [
   ['todos', 'Todos'],
   ['abordagem', 'Abordagem'],
   ['fechamento', 'Fechamento'],
+  ['entrega', 'Entrega'],
 ]
 
 export function AgendaPanel({ period }: { period: Period }) {

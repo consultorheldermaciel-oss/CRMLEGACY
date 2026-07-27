@@ -44,6 +44,8 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const [remarcarDate, setRemarcarDate] = useState<string | null>(null)
   const [showAgendarFechamento, setShowAgendarFechamento] = useState(false)
   const [fechamentoDate, setFechamentoDate] = useState<string | null>(null)
+  const [showAgendarEntrega, setShowAgendarEntrega] = useState(false)
+  const [entregaDate, setEntregaDate] = useState<string | null>(null)
   const [editingAnamnese, setEditingAnamnese] = useState(false)
   const [draft, setDraft] = useState<Anamnese>(appt.anamnese)
   const [selectedProduct, setSelectedProduct] = useState('')
@@ -55,6 +57,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const days10 = nextDays(10)
   const activeRemarcarDate = remarcarDate || days7[0]
   const activeFechamentoDate = fechamentoDate || days10[0]
+  const activeEntregaDate = entregaDate || days10[0]
 
   const showFecharApolicePrompt = appt.type === 'fechamento' && appt.status === 'compareceu' && appt.policy_closed === null
   const showMarkDeliveredButton = !!appt.policy_closed && !appt.policy_delivered
@@ -64,6 +67,8 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         (a) => a.type === 'fechamento' && a.client_name === appt.client_name && a.consultant_id === appt.consultant_id && a.date >= appt.date,
       )
     : undefined
+  const linkedEntrega = appointments.find((a) => a.type === 'entrega' && a.linked_appointment_id === appt.id)
+  const showAgendarEntregaButton = appt.type === 'fechamento' && !!appt.policy_closed && !linkedEntrega
 
   const sections = buildAnamneseSections(appt.anamnese, appt.premium, appt.product)
 
@@ -99,6 +104,29 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       linked_appointment_id: appt.id,
     })
     setShowAgendarFechamento(false)
+  }
+
+  async function confirmAgendarEntrega(time: string) {
+    await createAppointment({
+      consultant_id: appt.consultant_id,
+      client_name: appt.client_name,
+      type: 'entrega',
+      event_kind: null,
+      duration: 1,
+      date: activeEntregaDate,
+      time,
+      status: 'agendado',
+      wants_manager: false,
+      locked_by_lider: appt.locked_by_lider,
+      anamnese: appt.anamnese,
+      policy_closed: appt.policy_closed,
+      premium: appt.premium,
+      product: appt.product,
+      policy_delivered: null,
+      fechamento_agendado: false,
+      linked_appointment_id: appt.id,
+    })
+    setShowAgendarEntrega(false)
   }
 
   async function confirmPolicyClosed() {
@@ -339,6 +367,70 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         >
           Marcar apólice como entregue
         </button>
+      )}
+
+      {showAgendarEntregaButton && (
+        <button
+          type="button"
+          onClick={() => setShowAgendarEntrega(true)}
+          className="bg-[#1E7A8C] text-white border-none rounded-lg px-3.5 py-2.5 text-[13px] font-bold mb-4 no-print"
+        >
+          📦 Agendar entrega de apólice
+        </button>
+      )}
+      {linkedEntrega && (
+        <div className="bg-[#E3F1F4] text-[#1E7A8C] rounded-lg px-3.5 py-2.5 text-[13px] font-bold mb-4">
+          📦 Entrega agendada para {dateLabel(linkedEntrega.date)} às {linkedEntrega.time}
+        </div>
+      )}
+
+      {showAgendarEntrega && (
+        <div className="bg-bg rounded-xl p-4 mb-4.5 no-print">
+          <div className="text-[12.5px] font-bold text-text-muted mb-2.5">
+            AGENDAR ENTREGA — o fechamento de {dateLabel(appt.date)} continua no calendário
+          </div>
+          <div className="flex gap-1.5 mb-3.5 flex-wrap">
+            {days10.map((ds) => {
+              const dt = new Date(ds + 'T00:00:00')
+              const active = activeEntregaDate === ds
+              return (
+                <button
+                  key={ds}
+                  type="button"
+                  onClick={() => setEntregaDate(ds)}
+                  className="rounded-lg py-1.5 px-2.5 text-center border min-w-[46px]"
+                  style={{ borderColor: active ? '#0B2D5B' : '#D8D5CD', background: active ? '#0B2D5B' : '#fff', color: active ? '#fff' : '#1A1D23' }}
+                >
+                  <div className="text-[9.5px]">{WEEKDAYS[dt.getDay()]}</div>
+                  <div className="text-sm font-bold">{dt.getDate()}</div>
+                </button>
+              )
+            })}
+          </div>
+          <div className="text-[12.5px] font-bold text-text-muted mb-2">HORÁRIOS — {dateLabel(activeEntregaDate)}</div>
+          <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
+            {Array.from({ length: 10 }, (_, i) => i + 8).map((h) => {
+              const time = `${String(h).padStart(2, '0')}:00`
+              const occ = isOccupied(appointments, appt.consultant_id, activeEntregaDate, h)
+              return (
+                <button
+                  key={time}
+                  type="button"
+                  disabled={occ}
+                  onClick={() => confirmAgendarEntrega(time)}
+                  className="flex justify-between border border-border rounded-lg px-3 py-2 text-[12.5px] font-semibold"
+                  style={{ background: occ ? '#F6F5F2' : '#fff', color: occ ? '#B0B4BC' : '#1A1D23' }}
+                >
+                  <span>{time}</span>
+                  <span className="text-[11px]">{occ ? 'ocupado' : 'livre'}</span>
+                </button>
+              )
+            })}
+          </div>
+          <button type="button" onClick={() => setShowAgendarEntrega(false)} className="bg-transparent border-none text-text-muted text-[12.5px] font-semibold mt-2.5 p-0">
+            Cancelar
+          </button>
+        </div>
       )}
 
       <div>
