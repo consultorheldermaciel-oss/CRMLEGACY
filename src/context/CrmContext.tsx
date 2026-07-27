@@ -51,9 +51,15 @@ interface CrmState {
   }) => Promise<void>
   updateClient: (id: string, patch: Partial<Client>) => Promise<void>
   removeClient: (id: string) => Promise<void>
-  createPolicy: (payload: Omit<Policy, 'id' | 'created_at'>) => Promise<void>
+  createPolicy: (payload: Omit<Policy, 'id' | 'created_at'>) => Promise<Policy | null>
   updatePolicy: (id: string, patch: Partial<Policy>) => Promise<void>
   removePolicy: (id: string) => Promise<void>
+  uploadPolicyDocument: (
+    consultantId: string,
+    policyId: string,
+    file: File,
+  ) => Promise<{ error: string | null }>
+  getPolicyDocumentUrl: (path: string) => Promise<string | null>
 }
 
 const CrmContext = createContext<CrmState | undefined>(undefined)
@@ -272,9 +278,13 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   }
 
   async function createPolicy(payload: Omit<Policy, 'id' | 'created_at'>) {
-    const { error } = await supabase.from('policies').insert(payload)
-    if (error) console.error(error) // eslint-disable-line no-console
+    const { data, error } = await supabase.from('policies').insert(payload).select().single()
+    if (error) {
+      console.error(error) // eslint-disable-line no-console
+      return null
+    }
     await refresh()
+    return data as Policy
   }
 
   async function updatePolicy(id: string, patch: Partial<Policy>) {
@@ -287,6 +297,24 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.from('policies').delete().eq('id', id)
     if (error) console.error(error) // eslint-disable-line no-console
     await refresh()
+  }
+
+  async function uploadPolicyDocument(consultantId: string, policyId: string, file: File) {
+    const ext = file.name.split('.').pop() || 'pdf'
+    const path = `${consultantId}/${policyId}/${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage.from('policy-documents').upload(path, file, { upsert: true })
+    if (uploadError) return { error: uploadError.message }
+    await updatePolicy(policyId, { document_path: path })
+    return { error: null }
+  }
+
+  async function getPolicyDocumentUrl(path: string) {
+    const { data, error } = await supabase.storage.from('policy-documents').createSignedUrl(path, 60)
+    if (error) {
+      console.error(error) // eslint-disable-line no-console
+      return null
+    }
+    return data.signedUrl
   }
 
   async function uploadAvatar(consultantId: string, file: File) {
@@ -334,6 +362,8 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       createPolicy,
       updatePolicy,
       removePolicy,
+      uploadPolicyDocument,
+      getPolicyDocumentUrl,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [consultants, appointments, tasks, reminders, dependents, clients, policies, dismissedReminderIds, loading],

@@ -80,6 +80,7 @@ export interface Policy {
   policy_number: string | null
   issued_date: string | null
   status: PolicyStatus
+  document_path: string | null
   created_at: string
 }
 

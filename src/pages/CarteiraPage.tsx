@@ -188,18 +188,21 @@ function NewClientModal({ consultantId, onClose }: { consultantId: string; onClo
 }
 
 function PolicyList({ clientId, consultantId, policies }: { clientId: string; consultantId: string; policies: Policy[] }) {
-  const { createPolicy, updatePolicy, removePolicy } = useCrm()
+  const { createPolicy, updatePolicy, removePolicy, uploadPolicyDocument, getPolicyDocumentUrl } = useCrm()
   const [adding, setAdding] = useState(false)
   const [product, setProduct] = useState(METLIFE_PRODUCT_LABELS[0])
   const [premiumInput, setPremiumInput] = useState('')
   const [policyNumber, setPolicyNumber] = useState('')
   const [issuedDate, setIssuedDate] = useState('')
+  const [documentFile, setDocumentFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
+  const [attachingId, setAttachingId] = useState<string | null>(null)
+  const [openingId, setOpeningId] = useState<string | null>(null)
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
     setSaving(true)
-    await createPolicy({
+    const created = await createPolicy({
       client_id: clientId,
       consultant_id: consultantId,
       product,
@@ -207,12 +210,31 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
       policy_number: policyNumber.trim() || null,
       issued_date: issuedDate || null,
       status: 'ativa',
+      document_path: null,
     })
+    if (created && documentFile) {
+      await uploadPolicyDocument(consultantId, created.id, documentFile)
+    }
     setSaving(false)
     setAdding(false)
     setPremiumInput('')
     setPolicyNumber('')
     setIssuedDate('')
+    setDocumentFile(null)
+  }
+
+  async function handleAttach(policyId: string, file: File) {
+    setAttachingId(policyId)
+    await uploadPolicyDocument(consultantId, policyId, file)
+    setAttachingId(null)
+  }
+
+  async function handleOpen(policyId: string, path: string) {
+    setOpeningId(policyId)
+    const url = await getPolicyDocumentUrl(path)
+    setOpeningId(null)
+    if (url) window.open(url, '_blank')
+    else alert('Não foi possível abrir o documento.')
   }
 
   return (
@@ -244,6 +266,30 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
                     </option>
                   ))}
                 </select>
+                {p.document_path ? (
+                  <button
+                    type="button"
+                    disabled={openingId === p.id}
+                    onClick={() => handleOpen(p.id, p.document_path as string)}
+                    className="bg-transparent border-none text-[13px] p-1"
+                    title="Ver apólice anexada"
+                  >
+                    {openingId === p.id ? '…' : '📎'}
+                  </button>
+                ) : (
+                  <label className="text-[13px] p-1 cursor-pointer" title="Anexar apólice (PDF)">
+                    {attachingId === p.id ? '…' : '📎'}
+                    <input
+                      type="file"
+                      accept="application/pdf,image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleAttach(p.id, file)
+                      }}
+                    />
+                  </label>
+                )}
                 <button type="button" onClick={() => removePolicy(p.id)} className="bg-transparent border-none text-[13px] p-1">
                   🗑️
                 </button>
@@ -301,6 +347,15 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
               className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
             />
           </div>
+          <label className="text-xs text-text-muted flex flex-col gap-1">
+            Anexar apólice (PDF ou foto, opcional)
+            <input
+              type="file"
+              accept="application/pdf,image/*"
+              onChange={(e) => setDocumentFile(e.target.files?.[0] ?? null)}
+              className="text-[12.5px]"
+            />
+          </label>
           <div className="flex gap-2">
             <button type="submit" disabled={saving} className="bg-navy text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold disabled:opacity-60">
               {saving ? 'Salvando…' : 'Salvar apólice'}
