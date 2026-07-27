@@ -198,6 +198,28 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
   const [saving, setSaving] = useState(false)
   const [attachingId, setAttachingId] = useState<string | null>(null)
   const [openingId, setOpeningId] = useState<string | null>(null)
+  const [extracting, setExtracting] = useState(false)
+  const [autoDetected, setAutoDetected] = useState(false)
+
+  async function handleDocumentSelected(file: File | null) {
+    setDocumentFile(file)
+    setAutoDetected(false)
+    if (!file || file.type !== 'application/pdf') return
+    setExtracting(true)
+    try {
+      const { extractPdfText, guessProduct, guessPremium } = await import('../lib/policyPdfExtract')
+      const text = await extractPdfText(file)
+      const detectedProduct = guessProduct(text)
+      const detectedPremium = guessPremium(text)
+      if (detectedProduct) setProduct(detectedProduct)
+      if (detectedPremium) setPremiumInput(formatCurrencyTyped(String(Math.round(detectedPremium * 100))))
+      if (detectedProduct || detectedPremium) setAutoDetected(true)
+    } catch (err) {
+      console.error(err) // eslint-disable-line no-console
+    } finally {
+      setExtracting(false)
+    }
+  }
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
@@ -217,10 +239,12 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
     }
     setSaving(false)
     setAdding(false)
+    setProduct(METLIFE_PRODUCT_LABELS[0])
     setPremiumInput('')
     setPolicyNumber('')
     setIssuedDate('')
     setDocumentFile(null)
+    setAutoDetected(false)
   }
 
   async function handleAttach(policyId: string, file: File) {
@@ -352,10 +376,16 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
             <input
               type="file"
               accept="application/pdf,image/*"
-              onChange={(e) => setDocumentFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => handleDocumentSelected(e.target.files?.[0] ?? null)}
               className="text-[12.5px]"
             />
           </label>
+          {extracting && <div className="text-[11px] text-text-faint">🔍 Lendo o PDF pra preencher produto e prêmio…</div>}
+          {autoDetected && !extracting && (
+            <div className="text-[11px] text-[#1E7A46] font-semibold">
+              ✅ Produto e prêmio preenchidos automaticamente a partir do PDF — confira antes de salvar.
+            </div>
+          )}
           <div className="flex gap-2">
             <button type="submit" disabled={saving} className="bg-navy text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold disabled:opacity-60">
               {saving ? 'Salvando…' : 'Salvar apólice'}
