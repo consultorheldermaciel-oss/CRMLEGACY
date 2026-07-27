@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase, functionErrorMessage } from '../lib/supabase'
 import { useAuth } from './AuthContext'
-import type { Appointment, Dependent, Profile, Reminder, Task } from '../lib/types'
+import type { Appointment, Client, Dependent, Policy, Profile, Reminder, Task } from '../lib/types'
 
 interface CrmState {
   consultants: Profile[]
@@ -9,6 +9,8 @@ interface CrmState {
   tasks: Task[]
   reminders: Reminder[]
   dependents: Dependent[]
+  clients: Client[]
+  policies: Policy[]
   dismissedReminderIds: Set<string>
   loading: boolean
   refresh: () => Promise<void>
@@ -40,6 +42,18 @@ interface CrmState {
   updateDependent: (id: string, patch: Partial<Dependent>) => Promise<void>
   removeDependent: (id: string) => Promise<void>
   uploadAvatar: (consultantId: string, file: File) => Promise<{ error: string | null }>
+  createClient: (payload: {
+    consultant_id: string
+    name: string
+    phone: string | null
+    birth_date: string | null
+    notes: string | null
+  }) => Promise<void>
+  updateClient: (id: string, patch: Partial<Client>) => Promise<void>
+  removeClient: (id: string) => Promise<void>
+  createPolicy: (payload: Omit<Policy, 'id' | 'created_at'>) => Promise<void>
+  updatePolicy: (id: string, patch: Partial<Policy>) => Promise<void>
+  removePolicy: (id: string) => Promise<void>
 }
 
 const CrmContext = createContext<CrmState | undefined>(undefined)
@@ -51,19 +65,23 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [dependents, setDependents] = useState<Dependent[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [policies, setPolicies] = useState<Policy[]>([])
   const [dismissedReminderIds, setDismissedReminderIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
   async function refresh() {
     if (!session) return
     setLoading(true)
-    const [c, a, t, r, d, dep] = await Promise.all([
+    const [c, a, t, r, d, dep, cli, pol] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at'),
       supabase.from('appointments').select('*').order('date').order('time'),
       supabase.from('tasks').select('*').order('deadline'),
       supabase.from('reminders').select('*').order('date'),
       supabase.from('dismissed_reminders').select('reminder_id').eq('profile_id', session.user.id),
       supabase.from('dependents').select('*').order('created_at'),
+      supabase.from('clients').select('*').order('name'),
+      supabase.from('policies').select('*').order('created_at'),
     ])
     setConsultants((c.data as Profile[]) ?? [])
     setAppointments((a.data as Appointment[]) ?? [])
@@ -71,6 +89,8 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     setReminders((r.data as Reminder[]) ?? [])
     setDismissedReminderIds(new Set((d.data ?? []).map((row) => row.reminder_id as string)))
     setDependents((dep.data as Dependent[]) ?? [])
+    setClients((cli.data as Client[]) ?? [])
+    setPolicies((pol.data as Policy[]) ?? [])
     setLoading(false)
   }
 
@@ -88,6 +108,8 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reminders' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dependents' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'policies' }, () => refresh())
       .subscribe()
 
     return () => {
@@ -225,6 +247,48 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     await refresh()
   }
 
+  async function createClient(payload: {
+    consultant_id: string
+    name: string
+    phone: string | null
+    birth_date: string | null
+    notes: string | null
+  }) {
+    const { error } = await supabase.from('clients').insert(payload)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
+  async function updateClient(id: string, patch: Partial<Client>) {
+    const { error } = await supabase.from('clients').update(patch).eq('id', id)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
+  async function removeClient(id: string) {
+    const { error } = await supabase.from('clients').delete().eq('id', id)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
+  async function createPolicy(payload: Omit<Policy, 'id' | 'created_at'>) {
+    const { error } = await supabase.from('policies').insert(payload)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
+  async function updatePolicy(id: string, patch: Partial<Policy>) {
+    const { error } = await supabase.from('policies').update(patch).eq('id', id)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
+  async function removePolicy(id: string) {
+    const { error } = await supabase.from('policies').delete().eq('id', id)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
   async function uploadAvatar(consultantId: string, file: File) {
     const ext = file.name.split('.').pop() || 'jpg'
     const path = `${consultantId}/${Date.now()}.${ext}`
@@ -242,6 +306,8 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       tasks,
       reminders,
       dependents,
+      clients,
+      policies,
       dismissedReminderIds,
       loading,
       refresh,
@@ -262,9 +328,15 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       updateDependent,
       removeDependent,
       uploadAvatar,
+      createClient,
+      updateClient,
+      removeClient,
+      createPolicy,
+      updatePolicy,
+      removePolicy,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [consultants, appointments, tasks, reminders, dependents, dismissedReminderIds, loading],
+    [consultants, appointments, tasks, reminders, dependents, clients, policies, dismissedReminderIds, loading],
   )
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>

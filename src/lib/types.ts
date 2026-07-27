@@ -59,6 +59,30 @@ export interface Dependent {
   created_at: string
 }
 
+export interface Client {
+  id: string
+  consultant_id: string
+  name: string
+  phone: string | null
+  birth_date: string | null
+  notes: string | null
+  created_at: string
+}
+
+export type PolicyStatus = 'ativa' | 'entregue' | 'cancelada'
+
+export interface Policy {
+  id: string
+  client_id: string
+  consultant_id: string
+  product: string
+  premium: number | null
+  policy_number: string | null
+  issued_date: string | null
+  status: PolicyStatus
+  created_at: string
+}
+
 export type Anamnese = Record<string, string | string[] | undefined>
 
 export interface Appointment {
