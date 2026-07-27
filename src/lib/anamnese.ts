@@ -362,6 +362,21 @@ export function buildAnamneseBlocks(draft: Anamnese): AnamneseBlock[] {
     items: patrimonioItems,
   })
 
+  if (has(draft, 'possuiSocio', 'Sim')) {
+    const socioCount = Math.min(10, Math.max(0, parseInt(String(draft.quantosSocios ?? '0')) || 0))
+    for (let i = 1; i <= socioCount; i++) {
+      blocks.push({
+        title: `Sócio ${i}`,
+        sectionLabel: null,
+        items: [
+          T(`socio${i}Nome`, 'Nome do sócio'),
+          T(`socio${i}Nascimento`, 'Data de nascimento do sócio (dd/mm/aaaa)', 'date'),
+          T(`socio${i}Telefone`, 'Telefone do sócio'),
+        ],
+      })
+    }
+  }
+
   return blocks
 }
 
@@ -425,6 +440,8 @@ function classifyForPrint(key: string): { section: string; group: string | null 
   }
   if (key.startsWith('doencaCronica') || CLIENTE_KEYS.includes(key)) return { section: PRINT_SECTION_CLIENTE, group: null }
   if (PROFISSIONAL_KEYS.includes(key)) return { section: PRINT_SECTION_PROFISSIONAL, group: null }
+  const socioMatch = key.match(/^socio(\d+)/)
+  if (socioMatch) return { section: PRINT_SECTION_PATRIMONIAL, group: `Sócio ${socioMatch[1]}` }
   if (
     /^(patrimonio|dividas|tempoProtecaoRenda|possuiPatrimonio|possuiEmpresa|empresa|possuiSocio|quantosSocios|percentualSocio|bensInventario|custoManutencaoPadraoVida|representatividadeCliente)/.test(
       key,
@@ -479,12 +496,17 @@ const MAXIMAL_DRAFT_VARIANTS: Anamnese[] = [
   { ...MAXIMAL_DRAFT, histFamiliares: ['Irmão(s)'], histDoenca_Irmãos: ALL_DOENCAS },
 ]
 
-// The label text for dep{n}Nome/Idade/Custo never varies by n, so a fixed
-// index built from one dependent (above) already covers every index.
+// The label text for dep{n}/socio{n} fields never varies by n, so a fixed
+// index built from one instance (above) already covers every index.
 const DEP_FIELD_LABELS: Record<string, string> = {
   Nome: 'Nome do dependente',
   Idade: 'Idade',
   Custo: 'Custo mensal com educação / atividades extras (R$, caso haja)',
+}
+const SOCIO_FIELD_LABELS: Record<string, string> = {
+  Nome: 'Nome do sócio',
+  Nascimento: 'Data de nascimento do sócio (dd/mm/aaaa)',
+  Telefone: 'Telefone do sócio',
 }
 
 const labelIndex = new Map<string, string>()
@@ -497,6 +519,8 @@ function labelFor(key: string): string {
   if (labelIndex.has(key)) return labelIndex.get(key) as string
   const depMatch = key.match(/^dep\d+(Nome|Idade|Custo)$/)
   if (depMatch) return DEP_FIELD_LABELS[depMatch[1]]
+  const socioMatch = key.match(/^socio\d+(Nome|Nascimento|Telefone)$/)
+  if (socioMatch) return SOCIO_FIELD_LABELS[socioMatch[1]]
   return prettifyKey(key)
 }
 
@@ -533,8 +557,8 @@ const PRINT_SECTION_ORDER = [
 ]
 
 function groupSortKey(title: string): number {
-  const dep = title.match(/^Dependente (\d+)$/)
-  if (dep) return Number(dep[1])
+  const m = title.match(/(\d+)$/)
+  if (m) return Number(m[1])
   return 0
 }
 
