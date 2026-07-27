@@ -4,9 +4,12 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { resolveViewScope } from '../lib/viewScope'
 import { formatCurrencyTyped, parseCurrency, toTitleCase } from '../lib/format'
-import type { Policy, PolicyStatus } from '../lib/types'
+import type { Anamnese, Client, Policy, PolicyStatus } from '../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../lib/metlifeContract'
+import { buildAnamneseSections } from '../lib/anamnese'
 import { Modal, ModalHeader } from '../components/ui/Modal'
+import { AnamneseForm } from '../components/modals/AnamneseForm'
+import { AnamneseSectionsView } from '../components/AnamneseSectionsView'
 
 const STATUS_LABELS: Record<PolicyStatus, string> = {
   ativa: 'Ativa',
@@ -94,6 +97,7 @@ export function CarteiraPage() {
                 <div className="mt-3.5 pt-3.5 border-t border-border">
                   {client.notes && <div className="text-[12.5px] text-text-muted mb-3">{client.notes}</div>}
                   <PolicyList clientId={client.id} consultantId={client.consultant_id} policies={clientPolicies} />
+                  <ClientAnamneseSection client={client} />
                 </div>
               )}
             </div>
@@ -395,6 +399,55 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
             </button>
           </div>
         </form>
+      )}
+    </div>
+  )
+}
+
+function ClientAnamneseSection({ client }: { client: Client }) {
+  const { updateClient } = useCrm()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<Anamnese>(client.anamnese)
+  const [saving, setSaving] = useState(false)
+
+  const sections = buildAnamneseSections(client.anamnese)
+
+  async function handleSave() {
+    setSaving(true)
+    await updateClient(client.id, { anamnese: draft })
+    setSaving(false)
+    setEditing(false)
+  }
+
+  return (
+    <div className="mt-3.5 pt-3.5 border-t border-border">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="text-[11px] font-bold text-text-muted tracking-wide">ANAMNESE</div>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(client.anamnese)
+            setEditing((v) => !v)
+          }}
+          className="bg-transparent border-none text-navy text-[12.5px] font-semibold"
+        >
+          {editing ? 'Cancelar' : sections.length > 0 ? '✏️ Editar anamnese' : '📋 Preencher anamnese'}
+        </button>
+      </div>
+      {!editing ? (
+        <AnamneseSectionsView sections={sections} />
+      ) : (
+        <div className="flex flex-col gap-4.5">
+          <AnamneseForm draft={draft} onChange={setDraft} />
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSave}
+            className="bg-navy text-white border-none rounded-lg py-2.5 text-[13px] font-bold disabled:opacity-60"
+          >
+            {saving ? 'Salvando…' : 'Salvar anamnese'}
+          </button>
+        </div>
       )}
     </div>
   )

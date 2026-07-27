@@ -1,4 +1,4 @@
-import type { Dependent, Profile } from './types'
+import type { Client, Dependent, Profile } from './types'
 import { dstr } from './format'
 
 export interface BirthdayReminder {
@@ -21,9 +21,16 @@ export function nextOccurrence(birthDate: string, today: Date): string {
   return dstr(year, m - 1, d)
 }
 
+/** The anamnese stores dates as typed dd/mm/aaaa text, not ISO — convert before reusing nextOccurrence. */
+function brDateToIso(br: string): string | null {
+  const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null
+}
+
 export function computeBirthdayReminders(
   consultants: Profile[],
   dependents: Dependent[],
+  clients: Client[],
   today: Date,
 ): BirthdayReminder[] {
   const items: BirthdayReminder[] = []
@@ -58,6 +65,42 @@ export function computeBirthdayReminders(
       title: `Aniversário do(a) filho(a) de ${first} — ${d.name}`,
       date: nextOccurrence(d.birth_date, today),
     })
+  })
+  clients.forEach((client) => {
+    if (client.birth_date) {
+      items.push({
+        id: `client:${client.id}`,
+        icon: '🎂',
+        title: `Aniversário do cliente — ${client.name}`,
+        date: nextOccurrence(client.birth_date, today),
+      })
+    }
+    const conjugeNascimento = client.anamnese?.conjugeNascimento
+    if (typeof conjugeNascimento === 'string') {
+      const iso = brDateToIso(conjugeNascimento)
+      const conjugeNome = client.anamnese?.conjugeNome
+      if (iso) {
+        items.push({
+          id: `client-spouse:${client.id}`,
+          icon: '💍',
+          title: `Aniversário do cônjuge de ${client.name}${typeof conjugeNome === 'string' && conjugeNome ? ` — ${conjugeNome}` : ''}`,
+          date: nextOccurrence(iso, today),
+        })
+      }
+    }
+    for (let i = 1; i <= 10; i++) {
+      const rawNasc = client.anamnese?.[`dep${i}Nascimento`]
+      if (typeof rawNasc !== 'string') continue
+      const iso = brDateToIso(rawNasc)
+      if (!iso) continue
+      const nome = client.anamnese?.[`dep${i}Nome`]
+      items.push({
+        id: `client-dep:${client.id}:${i}`,
+        icon: '🎂',
+        title: `Aniversário do(a) filho(a) de ${client.name}${typeof nome === 'string' && nome ? ` — ${nome}` : ''}`,
+        date: nextOccurrence(iso, today),
+      })
+    }
   })
   return items.sort((a, b) => a.date.localeCompare(b.date))
 }

@@ -15,7 +15,7 @@ function todayStr() {
 
 export function Header() {
   const { profile, signOut } = useAuth()
-  const { consultants, reminders, dependents, tasks, dismissedReminderIds, dismissReminder, updateMyColor } = useCrm()
+  const { consultants, reminders, dependents, clients, tasks, dismissedReminderIds, dismissReminder, updateMyColor } = useCrm()
   const { viewingId, setViewingId, screen, setScreen } = useUi()
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [colorBusy, setColorBusy] = useState(false)
@@ -37,7 +37,7 @@ export function Header() {
 
   const scopedTasks = isGestor ? tasks : tasks.filter((t) => t.consultant_id === profile.id)
   const pendingTaskCount = scopedTasks.filter((t) => !t.done).length
-  const birthdayReminders = computeBirthdayReminders(consultants, dependents, new Date())
+  const birthdayReminders = computeBirthdayReminders(consultants, dependents, clients, new Date())
 
   const today = todayStr()
   const todayManualReminders = reminders.filter((r) => r.date === today && !dismissedReminderIds.has(r.id))

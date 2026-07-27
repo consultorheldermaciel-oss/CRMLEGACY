@@ -121,7 +121,7 @@ export function buildAnamneseBlocks(draft: Anamnese): AnamneseBlock[] {
         sectionLabel: secPessoal(),
         items: [
           T(`dep${i}Nome`, 'Nome do dependente'),
-          T(`dep${i}Idade`, 'Idade'),
+          T(`dep${i}Nascimento`, 'Data de nascimento (dd/mm/aaaa)', 'date'),
           T(`dep${i}Custo`, 'Custo mensal com educação / atividades extras (R$, caso haja)', 'currency'),
         ],
       })
@@ -500,7 +500,7 @@ const MAXIMAL_DRAFT_VARIANTS: Anamnese[] = [
 // index built from one instance (above) already covers every index.
 const DEP_FIELD_LABELS: Record<string, string> = {
   Nome: 'Nome do dependente',
-  Idade: 'Idade',
+  Nascimento: 'Data de nascimento (dd/mm/aaaa)',
   Custo: 'Custo mensal com educação / atividades extras (R$, caso haja)',
 }
 const SOCIO_FIELD_LABELS: Record<string, string> = {
@@ -517,7 +517,7 @@ function labelFor(key: string): string {
     )
   }
   if (labelIndex.has(key)) return labelIndex.get(key) as string
-  const depMatch = key.match(/^dep\d+(Nome|Idade|Custo)$/)
+  const depMatch = key.match(/^dep\d+(Nome|Nascimento|Custo)$/)
   if (depMatch) return DEP_FIELD_LABELS[depMatch[1]]
   const socioMatch = key.match(/^socio\d+(Nome|Nascimento|Telefone)$/)
   if (socioMatch) return SOCIO_FIELD_LABELS[socioMatch[1]]

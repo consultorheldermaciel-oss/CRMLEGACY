@@ -15,7 +15,7 @@ function todayStr() {
 
 export function LembretesPage() {
   const { profile } = useAuth()
-  const { consultants, dependents, tasks, reminders, markTaskDone, createReminder } = useCrm()
+  const { consultants, dependents, clients, tasks, reminders, markTaskDone, createReminder } = useCrm()
   const { viewingId } = useUi()
   const [icon, setIcon] = useState('🎂')
   const [title, setTitle] = useState('')
@@ -29,7 +29,8 @@ export function LembretesPage() {
 
   const scopedConsultants = memberIds ? consultants.filter((c) => memberIds.includes(c.id)) : consultants
   const scopedDependents = memberIds ? dependents.filter((d) => memberIds.includes(d.consultant_id)) : dependents
-  const birthdayReminders = computeBirthdayReminders(scopedConsultants, scopedDependents, new Date())
+  const scopedClients = memberIds ? clients.filter((c) => memberIds.includes(c.consultant_id)) : clients
+  const birthdayReminders = computeBirthdayReminders(scopedConsultants, scopedDependents, scopedClients, new Date())
 
   const importantDates = [
     ...reminders.map((r) => ({ id: r.id, icon: r.icon, title: r.title, date: r.date })),

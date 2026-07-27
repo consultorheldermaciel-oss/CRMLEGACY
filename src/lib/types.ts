@@ -66,6 +66,7 @@ export interface Client {
   phone: string | null
   birth_date: string | null
   notes: string | null
+  anamnese: Anamnese
   created_at: string
 }
 

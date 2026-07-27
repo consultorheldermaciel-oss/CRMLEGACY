@@ -9,6 +9,7 @@ import { dateLabel, dstr, formatCurrencyTyped, parseCurrency, WEEKDAYS } from '.
 import { buildAnamneseSections } from '../../lib/anamnese'
 import { Modal } from '../ui/Modal'
 import { AnamneseForm } from './AnamneseForm'
+import { AnamneseSectionsView } from '../AnamneseSectionsView'
 
 function nextDays(n: number) {
   const out: string[] = []
@@ -438,41 +439,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           ANAMNESE — todas as informações coletadas na abordagem
         </div>
         {!editingAnamnese ? (
-          <div className="flex flex-col gap-4.5">
-            {sections.map((sec) => (
-              <div key={sec.title}>
-                <div className="font-heading font-bold text-[13px] text-navy tracking-wide pb-2 mb-2.5 border-b-2 border-navy">
-                  {sec.title.toUpperCase()}
-                </div>
-                <div className="flex flex-col gap-2.5">
-                  {sec.items.map((it) => (
-                    <div key={it.label} className="flex justify-between text-[13px] border-b border-[#F0EEE8] pb-2 gap-3">
-                      <span className="text-text-muted">{it.label}</span>
-                      <span className="font-semibold text-right">{it.value}</span>
-                    </div>
-                  ))}
-                </div>
-                {sec.groups.map((g) => (
-                  <div key={g.title} className="mt-3 pl-3 border-l-2 border-[#E5E2D9]">
-                    <div className="text-[11.5px] font-bold text-text-muted tracking-wide mb-1.5">
-                      {g.title.toUpperCase()}
-                    </div>
-                    <div className="flex flex-col gap-2.5">
-                      {g.items.map((it) => (
-                        <div key={it.label} className="flex justify-between text-[13px] border-b border-[#F0EEE8] pb-2 gap-3">
-                          <span className="text-text-muted">{it.label}</span>
-                          <span className="font-semibold text-right">{it.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-            {sections.length === 0 && (
-              <div className="text-[12.5px] text-text-faint">Nenhuma informação de anamnese registrada ainda.</div>
-            )}
-          </div>
+          <AnamneseSectionsView sections={sections} />
         ) : (
           <div className="flex flex-col gap-4.5">
             <AnamneseForm draft={draft} onChange={setDraft} />
