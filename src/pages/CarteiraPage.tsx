@@ -305,13 +305,18 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
     if (!file || file.type !== 'application/pdf') return
     setExtracting(true)
     try {
-      const { extractPdfText, guessProduct, guessPremium } = await import('../lib/policyPdfExtract')
+      const { extractPdfText, guessProduct, guessPremium, guessVigenciaInicio } = await import('../lib/policyPdfExtract')
       const text = await extractPdfText(file)
       const detectedProduct = guessProduct(text)
       const detectedPremium = guessPremium(text)
+      const detectedVigencia = await guessVigenciaInicio(file)
       if (detectedProduct) setProduct(detectedProduct)
       if (detectedPremium) setPremiumInput(formatCurrencyTyped(String(Math.round(detectedPremium * 100))))
-      if (detectedProduct || detectedPremium) setAutoDetected(true)
+      if (detectedVigencia) {
+        const [d, m, y] = detectedVigencia.split('/')
+        setIssuedDate(`${y}-${m}-${d}`)
+      }
+      if (detectedProduct || detectedPremium || detectedVigencia) setAutoDetected(true)
     } catch (err) {
       console.error(err) // eslint-disable-line no-console
     } finally {

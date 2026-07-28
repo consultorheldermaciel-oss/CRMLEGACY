@@ -67,3 +67,56 @@ export function guessPremium(text: string): number | null {
   const value = Number(m[1].replace(/\./g, '').replace(',', '.'))
   return Number.isFinite(value) ? value : null
 }
+
+interface PositionedItem {
+  str: string
+  x: number
+}
+
+/** MetLife's header block ("Nº da apólice", "Data de início de vigência" etc.)
+ * prints each label and its value side by side, but the two rows of the
+ * underlying table (all values, then all labels) get flattened into
+ * unrelated order by plain linear text extraction — that's why guessProduct
+ * /guessPremium work on scrambled text but a label like "Data de início de
+ * vigência:" can't just be regex-matched against its value. Instead this
+ * reads pdfjs's item coordinates directly: items sharing the same visual row
+ * (rounded y), sorted left to right, put every label immediately before its
+ * value — same trick, no matter which of the header's two label columns
+ * (x≈30 or x≈294) it's in. */
+async function extractPdfRows(file: File): Promise<PositionedItem[][]> {
+  const buffer = await file.arrayBuffer()
+  const pdf = await getDocument({ data: buffer }).promise
+  const rows: PositionedItem[][] = []
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const content = await page.getTextContent()
+    const byRow = new Map<number, PositionedItem[]>()
+    for (const item of content.items) {
+      if (!('str' in item) || !item.str.trim()) continue
+      const y = Math.round(item.transform[5])
+      const rowKey = [...byRow.keys()].find((k) => Math.abs(k - y) <= 2) ?? y
+      if (!byRow.has(rowKey)) byRow.set(rowKey, [])
+      byRow.get(rowKey)!.push({ str: item.str.trim(), x: item.transform[4] })
+    }
+    for (const items of byRow.values()) {
+      rows.push(items.sort((a, b) => a.x - b.x))
+    }
+  }
+  return rows
+}
+
+function findValueAfterLabel(rows: PositionedItem[][], labelText: string): string | null {
+  const labelLower = labelText.toLowerCase()
+  for (const row of rows) {
+    const idx = row.findIndex((it) => it.str.toLowerCase().includes(labelLower))
+    if (idx !== -1 && row[idx + 1]) return row[idx + 1].str
+  }
+  return null
+}
+
+/** Returns the apólice's "Data de início de vigência" as dd/mm/yyyy, or null. */
+export async function guessVigenciaInicio(file: File): Promise<string | null> {
+  const rows = await extractPdfRows(file)
+  const value = findValueAfterLabel(rows, 'Data de início de vigência')
+  return value && /^\d{2}\/\d{2}\/\d{4}$/.test(value) ? value : null
+}
