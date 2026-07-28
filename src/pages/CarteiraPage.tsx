@@ -309,7 +309,7 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
                     {attachingId === p.id ? '…' : '📎'}
                     <input
                       type="file"
-                      accept="application/pdf,image/*"
+                      accept="application/pdf"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0]
@@ -337,59 +337,77 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
           + Adicionar apólice
         </button>
       ) : (
-        <form onSubmit={handleAdd} className="flex flex-col gap-2.5 bg-bg rounded-xl p-3">
-          <div className="flex flex-wrap gap-1.5">
-            {METLIFE_PRODUCT_LABELS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setProduct(p)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold border"
-                style={{
-                  borderColor: product === p ? '#0B2D5B' : '#D8D5CD',
-                  background: product === p ? '#0B2D5B' : '#fff',
-                  color: product === p ? '#fff' : '#1A1D23',
-                }}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <input
-              value={premiumInput}
-              onChange={(e) => setPremiumInput(formatCurrencyTyped(e.target.value))}
-              placeholder="Prêmio mensal (R$)"
-              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px] flex-1 min-w-[130px]"
-            />
-            <input
-              value={policyNumber}
-              onChange={(e) => setPolicyNumber(e.target.value)}
-              placeholder="Número da apólice (opcional)"
-              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px] flex-1 min-w-[130px]"
-            />
-            <input
-              type="date"
-              value={issuedDate}
-              onChange={(e) => setIssuedDate(e.target.value)}
-              className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
-            />
-          </div>
-          <label className="text-xs text-text-muted flex flex-col gap-1">
-            Anexar apólice (PDF ou foto, opcional)
-            <input
-              type="file"
-              accept="application/pdf,image/*"
-              onChange={(e) => handleDocumentSelected(e.target.files?.[0] ?? null)}
-              className="text-[12.5px]"
-            />
+        <form onSubmit={handleAdd} className="flex flex-col gap-3 bg-bg rounded-xl p-3">
+          <label
+            className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-xl py-5 px-3 cursor-pointer text-center"
+            style={{ borderColor: documentFile ? '#1E7A8C' : '#C7CAD1', background: documentFile ? '#E3F1F4' : '#fff' }}
+          >
+            <div className="text-[26px] leading-none">📎</div>
+            <div className="text-[13px] font-bold text-navy">
+              {documentFile ? documentFile.name : 'Anexar apólice em PDF'}
+            </div>
+            <div className="text-[11px] text-text-faint">
+              {documentFile ? 'Toque pra trocar o arquivo' : 'Preenche produto e prêmio sozinho a partir do PDF'}
+            </div>
+            <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleDocumentSelected(e.target.files?.[0] ?? null)} />
           </label>
-          {extracting && <div className="text-[11px] text-text-faint">🔍 Lendo o PDF pra preencher produto e prêmio…</div>}
+          {extracting && <div className="text-[11px] text-text-faint text-center">🔍 Lendo o PDF pra preencher produto e prêmio…</div>}
           {autoDetected && !extracting && (
-            <div className="text-[11px] text-[#1E7A46] font-semibold">
+            <div className="text-[11px] text-[#1E7A46] font-semibold text-center">
               ✅ Produto e prêmio preenchidos automaticamente a partir do PDF — confira antes de salvar.
             </div>
           )}
+
+          <div>
+            <div className="text-[11px] text-text-muted mb-1.5">Produto vendido (opcional)</div>
+            <div className="flex flex-wrap gap-1.5">
+              {METLIFE_PRODUCT_LABELS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setProduct(p)}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold border"
+                  style={{
+                    borderColor: product === p ? '#0B2D5B' : '#D8D5CD',
+                    background: product === p ? '#0B2D5B' : '#fff',
+                    color: product === p ? '#fff' : '#1A1D23',
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            <label className="text-xs text-text-muted flex flex-col gap-1 flex-1 min-w-[130px]">
+              Prêmio mensal (opcional)
+              <input
+                value={premiumInput}
+                onChange={(e) => setPremiumInput(formatCurrencyTyped(e.target.value))}
+                placeholder="R$"
+                className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+              />
+            </label>
+            <label className="text-xs text-text-muted flex flex-col gap-1 flex-1 min-w-[130px]">
+              Número da apólice (opcional)
+              <input
+                value={policyNumber}
+                onChange={(e) => setPolicyNumber(e.target.value)}
+                className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+              />
+            </label>
+            <label className="text-xs text-text-muted flex flex-col gap-1">
+              Início de vigência (opcional)
+              <input
+                type="date"
+                value={issuedDate}
+                onChange={(e) => setIssuedDate(e.target.value)}
+                className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+              />
+            </label>
+          </div>
+
           <div className="flex gap-2">
             <button type="submit" disabled={saving} className="bg-navy text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold disabled:opacity-60">
               {saving ? 'Salvando…' : 'Salvar apólice'}
