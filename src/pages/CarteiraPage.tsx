@@ -4,7 +4,7 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { resolveViewScope } from '../lib/viewScope'
 import { formatCurrencyTyped, parseCurrency, toTitleCase } from '../lib/format'
-import type { Anamnese, Client, Policy, PolicyStatus } from '../lib/types'
+import type { Anamnese, Appointment, Client, Policy, PolicyStatus } from '../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../lib/metlifeContract'
 import { buildAnamneseSections } from '../lib/anamnese'
 import { Modal, ModalHeader } from '../components/ui/Modal'
@@ -22,9 +22,13 @@ const STATUS_COLORS: Record<PolicyStatus, { bg: string; color: string }> = {
   cancelada: { bg: '#FBE7E7', color: '#B23030' },
 }
 
+function clientKey(consultantId: string, name: string) {
+  return `${consultantId}::${name.trim().toLowerCase()}`
+}
+
 export function CarteiraPage() {
   const { profile } = useAuth()
-  const { consultants, clients, policies, removeClient } = useCrm()
+  const { consultants, clients, policies, appointments, removeClient } = useCrm()
   const { viewingId } = useUi()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [newClientOpen, setNewClientOpen] = useState(false)
@@ -34,6 +38,19 @@ export function CarteiraPage() {
   const scopedClients = memberIds ? clients.filter((c) => memberIds.includes(c.consultant_id)) : clients
   const targetConsultant = consultants.find((c) => c.id === viewingId)
   const canAddClient = viewingId !== 'gestor' && (targetConsultant ? targetConsultant.role === 'consultor' : true)
+
+  const scopedAppointments = memberIds ? appointments.filter((a) => memberIds.includes(a.consultant_id)) : appointments
+  const realKeys = new Set(scopedClients.map((c) => clientKey(c.consultant_id, c.name)))
+  const virtualMap = new Map<string, { consultantId: string; name: string; appts: Appointment[] }>()
+  scopedAppointments
+    .filter((a) => a.type !== 'evento')
+    .forEach((a) => {
+      const key = clientKey(a.consultant_id, a.client_name)
+      if (realKeys.has(key)) return
+      if (!virtualMap.has(key)) virtualMap.set(key, { consultantId: a.consultant_id, name: a.client_name, appts: [] })
+      virtualMap.get(key)!.appts.push(a)
+    })
+  const virtualClients = [...virtualMap.values()].sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="flex flex-col gap-4 max-w-[720px]">
@@ -108,6 +125,22 @@ export function CarteiraPage() {
         )}
       </div>
 
+      {virtualClients.length > 0 && (
+        <div className="flex flex-col gap-2.5">
+          <div className="font-heading font-bold text-[14px] text-text-muted mt-2">
+            Clientes de agendamentos (ainda não estão na carteira)
+          </div>
+          {virtualClients.map((v) => (
+            <VirtualClientRow
+              key={clientKey(v.consultantId, v.name)}
+              virtualClient={v}
+              isGestorView={isGestorView}
+              consultantName={consultants.find((c) => c.id === v.consultantId)?.name}
+            />
+          ))}
+        </div>
+      )}
+
       {newClientOpen && <NewClientModal consultantId={viewingId} onClose={() => setNewClientOpen(false)} />}
     </div>
   )
@@ -116,6 +149,67 @@ export function CarteiraPage() {
 function dateBr(iso: string) {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
+}
+
+function VirtualClientRow({
+  virtualClient,
+  isGestorView,
+  consultantName,
+}: {
+  virtualClient: { consultantId: string; name: string; appts: Appointment[] }
+  isGestorView: boolean
+  consultantName: string | undefined
+}) {
+  const { createClient, updateClient } = useCrm()
+  const [promoting, setPromoting] = useState(false)
+  const [promoted, setPromoted] = useState(false)
+
+  const sorted = [...virtualClient.appts].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+  const last = sorted[sorted.length - 1]
+  const sourceAnamnese = [...sorted].reverse().find((a) => a.anamnese && Object.keys(a.anamnese).length > 0)?.anamnese
+
+  async function handlePromote() {
+    setPromoting(true)
+    const created = await createClient({
+      consultant_id: virtualClient.consultantId,
+      name: toTitleCase(virtualClient.name),
+      phone: null,
+      birth_date: null,
+      notes: null,
+    })
+    if (created && sourceAnamnese) {
+      await updateClient(created.id, { anamnese: sourceAnamnese })
+    }
+    setPromoting(false)
+    setPromoted(true)
+  }
+
+  if (promoted) return null
+
+  return (
+    <div className="bg-card border border-dashed border-border rounded-2xl p-4 flex items-center justify-between gap-2.5 flex-wrap">
+      <div>
+        <div className="text-[14px] font-semibold">{virtualClient.name}</div>
+        <div className="text-[11.5px] text-text-faint">
+          {[
+            isGestorView ? consultantName : null,
+            `${virtualClient.appts.length} agendamento${virtualClient.appts.length > 1 ? 's' : ''}`,
+            last ? `último em ${dateBr(last.date)}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </div>
+      </div>
+      <button
+        type="button"
+        disabled={promoting}
+        onClick={handlePromote}
+        className="bg-bg border border-[#D8D5CD] rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-60"
+      >
+        {promoting ? 'Adicionando…' : '📥 Adicionar à carteira'}
+      </button>
+    </div>
+  )
 }
 
 function NewClientModal({ consultantId, onClose }: { consultantId: string; onClose: () => void }) {

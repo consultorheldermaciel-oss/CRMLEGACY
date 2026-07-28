@@ -48,7 +48,7 @@ interface CrmState {
     phone: string | null
     birth_date: string | null
     notes: string | null
-  }) => Promise<void>
+  }) => Promise<Client | null>
   updateClient: (id: string, patch: Partial<Client>) => Promise<void>
   removeClient: (id: string) => Promise<void>
   createPolicy: (payload: Omit<Policy, 'id' | 'created_at'>) => Promise<Policy | null>
@@ -260,9 +260,13 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     birth_date: string | null
     notes: string | null
   }) {
-    const { error } = await supabase.from('clients').insert(payload)
-    if (error) console.error(error) // eslint-disable-line no-console
+    const { data, error } = await supabase.from('clients').insert(payload).select().single()
+    if (error) {
+      console.error(error) // eslint-disable-line no-console
+      return null
+    }
     await refresh()
+    return data as Client
   }
 
   async function updateClient(id: string, patch: Partial<Client>) {
