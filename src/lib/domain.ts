@@ -17,9 +17,34 @@ export function apptTypeLabel(a: Pick<Appointment, 'type' | 'event_kind'>): stri
   return a.event_kind || 'Evento interno'
 }
 
+/** Agenda grid runs 08:00–18:00 in 30-minute slots. */
+export const AGENDA_START_HOUR = 8
+export const AGENDA_END_HOUR = 18
+export const AGENDA_SLOT_MINUTES = 30
+
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
+export function minutesToTime(mins: number): string {
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** Every 30-minute mark (in minutes-since-midnight) the agenda offers, 08:00 through 17:30. */
+export function agendaSlots(): number[] {
+  const slots: number[] = []
+  for (let m = AGENDA_START_HOUR * 60; m < AGENDA_END_HOUR * 60; m += AGENDA_SLOT_MINUTES) slots.push(m)
+  return slots
+}
+
+/** Spans are expressed in minutes-since-midnight, not hours — a 1h appointment
+ * starting at 09:30 covers [570, 630), not [9, 10). */
 export function apptSpan(a: Pick<Appointment, 'time' | 'duration'>) {
-  const start = parseInt(a.time)
-  const dur = a.duration || 1
+  const start = timeToMinutes(a.time)
+  const dur = (a.duration || 1) * 60
   return { start, end: start + dur }
 }
 
@@ -67,14 +92,14 @@ export function isOccupied(
   appointments: Appointment[],
   consultantId: string,
   date: string,
-  hour: number,
+  minutes: number,
   excludeId?: string,
 ): boolean {
   return appointments.some((a) => {
     if (excludeId && a.id === excludeId) return false
     if (a.consultant_id !== consultantId || a.date !== date) return false
     const { start, end } = apptSpan(a)
-    return hour >= start && hour < end
+    return minutes >= start && minutes < end
   })
 }
 
@@ -82,12 +107,12 @@ export function findApptCovering(
   appointments: Appointment[],
   consultantId: string,
   date: string,
-  hour: number,
+  minutes: number,
 ): Appointment | undefined {
   return appointments.find((a) => {
     if (a.consultant_id !== consultantId || a.date !== date) return false
     const { start, end } = apptSpan(a)
-    return hour >= start && hour < end
+    return minutes >= start && minutes < end
   })
 }
 

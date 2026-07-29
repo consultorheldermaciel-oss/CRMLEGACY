@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import type { NewApptSlot } from '../agenda/AgendaPanel'
 import { isManagerRole, type Anamnese, type AppointmentType } from '../../lib/types'
-import { isOccupied } from '../../lib/domain'
+import { agendaSlots, isOccupied, minutesToTime, timeToMinutes } from '../../lib/domain'
 import { Modal, ModalHeader } from '../ui/Modal'
 import { Chip } from '../ui/Chip'
 import { AnamneseForm } from './AnamneseForm'
@@ -11,7 +11,6 @@ import { toTitleCase } from '../../lib/format'
 
 const EVENT_KINDS = ['Reunião com o líder', 'Reunião com outro líder', 'Treinamento', 'Outro']
 const WEEKDAYS_FULL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
-const HOURS = Array.from({ length: 10 }, (_, i) => 8 + i)
 
 function pad2(n: number) {
   return String(n).padStart(2, '0')
@@ -76,7 +75,7 @@ export function NewAppointmentModal({
       return
     }
     let cancelled = false
-    const hour = allDay ? 8 : parseInt(time)
+    const hour = allDay ? 8 : Math.floor(timeToMinutes(time) / 60)
     const dur = allDay ? 10 : duration
     checkLiderBusy(slot.date, hour, dur, slot.consultantIds[0]).then((busy) => {
       if (!cancelled) setLiderBusy(busy)
@@ -177,23 +176,23 @@ export function NewAppointmentModal({
         <div className="mb-4">
           <div className="text-xs text-text-muted mb-1.5">Horário</div>
           <div className="flex gap-1.5 flex-wrap">
-            {HOURS.map((h) => {
-              const t = `${pad2(h)}:00`
-              const busy = slot.consultantIds.some((id) => isOccupied(appointments, id, slot.date, h))
+            {agendaSlots().map((m) => {
+              const t = minutesToTime(m)
+              const busy = slot.consultantIds.some((id) => isOccupied(appointments, id, slot.date, m))
               return (
                 <button
-                  key={h}
+                  key={m}
                   type="button"
                   disabled={busy}
                   onClick={() => setTime(t)}
-                  className="border rounded-lg px-2.5 py-2 text-[13px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="border rounded-lg px-2 py-2 text-[12.5px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
                     borderColor: time === t ? '#0B2D5B' : '#D8D5CD',
                     background: time === t ? '#0B2D5B' : '#fff',
                     color: time === t ? '#fff' : '#1A1D23',
                   }}
                 >
-                  {h}h
+                  {t}
                 </button>
               )
             })}
@@ -248,7 +247,7 @@ export function NewAppointmentModal({
               onChange={(e) => setDuration(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
               className="border border-[#D8D5CD] rounded-lg px-2 py-1.5 text-[13px] w-16"
             />
-            horas — termina às {Math.min(18, parseInt(time) + duration)}h
+            horas — termina às {minutesToTime(Math.min(18 * 60, timeToMinutes(time) + duration * 60))}
           </label>
         )}
       </div>

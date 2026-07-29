@@ -4,7 +4,7 @@ import { useCrm } from '../../context/CrmContext'
 import type { Anamnese, Appointment } from '../../lib/types'
 import { isManagerRole } from '../../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../../lib/metlifeContract'
-import { apptColor, apptTypeLabel, isOccupied, statusColors, statusLabel } from '../../lib/domain'
+import { agendaSlots, apptColor, apptTypeLabel, isOccupied, minutesToTime, statusColors, statusLabel } from '../../lib/domain'
 import { dateLabel, dstr, formatCurrencyTyped, parseCurrency, WEEKDAYS } from '../../lib/format'
 import { buildAnamneseSections } from '../../lib/anamnese'
 import { Modal } from '../ui/Modal'
@@ -24,8 +24,8 @@ function nextDays(n: number) {
 
 function googleCalendarUrl(appt: Appointment) {
   const [y, m, d] = appt.date.split('-').map(Number)
-  const [h] = appt.time.split(':').map(Number)
-  const start = new Date(y, m - 1, d, h)
+  const [h, min] = appt.time.split(':').map(Number)
+  const start = new Date(y, m - 1, d, h, min || 0)
   const end = new Date(start.getTime() + appt.duration * 3600000)
   const fmt = (dt: Date) =>
     `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}T${String(dt.getHours()).padStart(2, '0')}${String(dt.getMinutes()).padStart(2, '0')}00`
@@ -211,9 +211,9 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           </div>
           <div className="text-[12.5px] font-bold text-text-muted mb-2">HORÁRIOS — {dateLabel(activeFechamentoDate)}</div>
           <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
-            {Array.from({ length: 10 }, (_, i) => i + 8).map((h) => {
-              const time = `${String(h).padStart(2, '0')}:00`
-              const occ = isOccupied(appointments, appt.consultant_id, activeFechamentoDate, h)
+            {agendaSlots().map((m) => {
+              const time = minutesToTime(m)
+              const occ = isOccupied(appointments, appt.consultant_id, activeFechamentoDate, m)
               return (
                 <button
                   key={time}
@@ -304,9 +304,9 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           </div>
           <div className="text-[12.5px] font-bold text-text-muted mb-2">HORÁRIOS — {dateLabel(activeRemarcarDate)}</div>
           <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
-            {Array.from({ length: 10 }, (_, i) => i + 8).map((h) => {
-              const time = `${String(h).padStart(2, '0')}:00`
-              const occ = isOccupied(appointments, appt.consultant_id, activeRemarcarDate, h, appt.id)
+            {agendaSlots().map((m) => {
+              const time = minutesToTime(m)
+              const occ = isOccupied(appointments, appt.consultant_id, activeRemarcarDate, m, appt.id)
               return (
                 <button
                   key={time}
@@ -410,9 +410,9 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           </div>
           <div className="text-[12.5px] font-bold text-text-muted mb-2">HORÁRIOS — {dateLabel(activeEntregaDate)}</div>
           <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
-            {Array.from({ length: 10 }, (_, i) => i + 8).map((h) => {
-              const time = `${String(h).padStart(2, '0')}:00`
-              const occ = isOccupied(appointments, appt.consultant_id, activeEntregaDate, h)
+            {agendaSlots().map((m) => {
+              const time = minutesToTime(m)
+              const occ = isOccupied(appointments, appt.consultant_id, activeEntregaDate, m)
               return (
                 <button
                   key={time}

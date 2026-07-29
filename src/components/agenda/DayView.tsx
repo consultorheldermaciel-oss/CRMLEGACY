@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useCrm } from '../../context/CrmContext'
 import { dstr, MONTHS } from '../../lib/format'
-import { apptColor, apptSpan, apptTypeLabel, statusLabel } from '../../lib/domain'
+import { agendaSlots, apptColor, apptSpan, apptTypeLabel, minutesToTime, statusLabel, timeToMinutes } from '../../lib/domain'
 import type { Appointment, AppointmentType, Profile } from '../../lib/types'
 
 export function DayView({
@@ -22,14 +23,15 @@ export function DayView({
   onEmptySlotClick: (consultantId: string, date: string, time: string) => void
   onConflict: (appt: Appointment) => void
 }) {
+  const { updateAppointment } = useCrm()
   const [cursor, setCursor] = useState(() => new Date())
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
   const ds = dstr(cursor.getFullYear(), cursor.getMonth(), cursor.getDate())
   const columns = isGestorView ? consultants.map((c) => ({ id: c.id, name: c.name.split(' ')[0] })) : (() => {
     const c = consultants.find((x) => x.id === viewingId)
     return [{ id: viewingId, name: c?.name.split(' ')[0] ?? 'Eu' }]
   })()
-  const hours: number[] = []
-  for (let h = 8; h < 18; h++) hours.push(h)
+  const slots = agendaSlots()
 
   function shiftDay(delta: number) {
     setCursor((c) => {
@@ -37,6 +39,13 @@ export function DayView({
       d.setDate(d.getDate() + delta)
       return d
     })
+  }
+
+  function handleDrop(e: React.DragEvent, time: string) {
+    e.preventDefault()
+    setDragOverKey(null)
+    const apptId = e.dataTransfer.getData('text/plain')
+    if (apptId) updateAppointment(apptId, { date: ds, time })
   }
 
   return (
@@ -63,73 +72,96 @@ export function DayView({
               {col.name}
             </div>
           ))}
-          {hours.map((h) => (
-            <div key={h} className="contents">
-              <div className="bg-white text-[10px] text-text-faint p-1 text-right">
-                {String(h).padStart(2, '0')}:00
-              </div>
-              {columns.map((col) => {
-                const startingHere = appointments.filter(
-                  (a) =>
-                    a.consultant_id === col.id &&
-                    a.date === ds &&
-                    parseInt(a.time) === h &&
-                    (apptTypeFilter === 'todos' || a.type === apptTypeFilter),
-                )
-                if (startingHere.length) {
-                  return (
-                    <div key={col.id} className="bg-white min-h-[56px] p-0.5 flex flex-col gap-0.5">
-                      {startingHere.map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => onOpenAppt(a.id)}
-                          className="text-white border-none rounded px-1.5 py-1 text-left flex flex-col gap-0.5"
-                          style={{ background: apptColor(a) }}
-                        >
-                          <span className="text-[10.5px] font-semibold">
-                            {a.client_name} · {apptTypeLabel(a)}
-                            {a.duration > 1 ? ` (${a.duration}h)` : ''}
-                          </span>
-                          <span className="text-[9px] opacity-85">{statusLabel(a.status)}</span>
-                        </button>
-                      ))}
-                    </div>
+          {slots.map((m) => {
+            const onHour = m % 60 === 0
+            return (
+              <div key={m} className="contents">
+                <div
+                  className="bg-white p-1 text-right"
+                  style={{ fontSize: onHour ? 10 : 9, color: onHour ? '#8A8F98' : '#C7CAD1' }}
+                >
+                  {minutesToTime(m)}
+                </div>
+                {columns.map((col) => {
+                  const key = `${col.id}-${m}`
+                  const startingHere = appointments.filter(
+                    (a) =>
+                      a.consultant_id === col.id &&
+                      a.date === ds &&
+                      timeToMinutes(a.time) === m &&
+                      (apptTypeFilter === 'todos' || a.type === apptTypeFilter),
                   )
-                }
-                const covering = appointments.find(
-                  (a) => a.consultant_id === col.id && a.date === ds && h > parseInt(a.time) && h < apptSpan(a).end,
-                )
-                if (covering) {
+                  if (startingHere.length) {
+                    return (
+                      <div key={col.id} className="bg-white min-h-[40px] p-0.5 flex flex-col gap-0.5">
+                        {startingHere.map((a) => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            draggable
+                            onDragStart={(e) => e.dataTransfer.setData('text/plain', a.id)}
+                            onClick={() => onOpenAppt(a.id)}
+                            className="text-white border-none rounded px-1.5 py-1 text-left flex flex-col gap-0.5 cursor-grab active:cursor-grabbing"
+                            style={{ background: apptColor(a) }}
+                          >
+                            <span className="text-[10.5px] font-semibold">
+                              {a.time} {a.client_name} · {apptTypeLabel(a)}
+                              {a.duration > 1 ? ` (${a.duration}h)` : ''}
+                            </span>
+                            <span className="text-[9px] opacity-85">{statusLabel(a.status)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  }
+                  const covering = appointments.find(
+                    (a) => a.consultant_id === col.id && a.date === ds && m > timeToMinutes(a.time) && m < apptSpan(a).end,
+                  )
+                  if (covering) {
+                    return (
+                      <div key={col.id} className="bg-white min-h-[40px] p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => (covering.locked_by_lider ? onConflict(covering) : undefined)}
+                          className="rounded h-full min-h-5 w-full flex items-center px-1.5"
+                          style={{ background: apptColor(covering), opacity: 0.55, cursor: covering.locked_by_lider ? 'pointer' : 'default' }}
+                        >
+                          <span className="text-white text-[9.5px] font-semibold truncate">
+                            {covering.client_name}
+                          </span>
+                        </button>
+                      </div>
+                    )
+                  }
                   return (
-                    <div key={col.id} className="bg-white min-h-[56px] p-0.5">
+                    <div
+                      key={col.id}
+                      className="bg-white min-h-[40px] p-0.5"
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        setDragOverKey(key)
+                      }}
+                      onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
+                      onDrop={(e) => handleDrop(e, minutesToTime(m))}
+                    >
                       <button
                         type="button"
-                        onClick={() => (covering.locked_by_lider ? onConflict(covering) : undefined)}
-                        className="rounded h-full min-h-5 w-full flex items-center px-1.5"
-                        style={{ background: apptColor(covering), opacity: 0.55, cursor: covering.locked_by_lider ? 'pointer' : 'default' }}
+                        onClick={() => onEmptySlotClick(col.id, ds, minutesToTime(m))}
+                        className="border border-dashed rounded text-[10px] p-1 w-full h-full"
+                        style={{
+                          borderColor: dragOverKey === key ? '#0B2D5B' : '#C7CAD1',
+                          background: dragOverKey === key ? '#EAF0FA' : 'transparent',
+                          color: '#9AA0A8',
+                        }}
                       >
-                        <span className="text-white text-[9.5px] font-semibold truncate">
-                          {covering.client_name}
-                        </span>
+                        {onHour ? '+ Novo agendamento' : '+'}
                       </button>
                     </div>
                   )
-                }
-                return (
-                  <div key={col.id} className="bg-white min-h-[56px] p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => onEmptySlotClick(col.id, ds, `${String(h).padStart(2, '0')}:00`)}
-                      className="border border-dashed border-[#C7CAD1] bg-transparent text-text-faint rounded text-[10px] p-1 w-full h-full"
-                    >
-                      + Novo agendamento
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          ))}
+                })}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

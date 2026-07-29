@@ -1,6 +1,14 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { WEEKDAYS, dstr } from '../../lib/format'
-import { apptColor, apptTypeLabel, findApptCovering, isOccupied, monthYearLabel as fmtMonthYear } from '../../lib/domain'
+import {
+  agendaSlots,
+  apptColor,
+  apptTypeLabel,
+  findApptCovering,
+  isOccupied,
+  minutesToTime,
+  monthYearLabel as fmtMonthYear,
+} from '../../lib/domain'
 import type { Appointment, Profile } from '../../lib/types'
 
 function todayParts() {
@@ -97,19 +105,20 @@ export function MonthView({
 
     const handleDayClick = () => {
       if (isGestorView) return onDayClickGestor(ds)
-      let freeHour: number | null = null
-      for (let h = 8; h < 18; h++) {
-        if (!isOccupied(allAppointments, viewingId, ds, h)) {
-          freeHour = h
+      let freeSlot: number | null = null
+      for (const m of agendaSlots()) {
+        if (!isOccupied(allAppointments, viewingId, ds, m)) {
+          freeSlot = m
           break
         }
       }
-      if (freeHour === null) {
-        const covering = findApptCovering(allAppointments, viewingId, ds, 8) ?? allAppointments.find((a) => a.date === ds)
+      if (freeSlot === null) {
+        const covering =
+          findApptCovering(allAppointments, viewingId, ds, agendaSlots()[0]) ?? allAppointments.find((a) => a.date === ds)
         if (covering) onFullDay(covering)
         return
       }
-      onDayClickSelf(ds, `${String(freeHour).padStart(2, '0')}:00`)
+      onDayClickSelf(ds, minutesToTime(freeSlot))
     }
 
     cells.push(

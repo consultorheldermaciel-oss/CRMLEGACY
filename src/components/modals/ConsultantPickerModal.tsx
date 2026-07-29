@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Appointment, Profile } from '../../lib/types'
 import { dateLabel, initials } from '../../lib/format'
-import { isOccupied } from '../../lib/domain'
+import { agendaSlots, isOccupied, minutesToTime } from '../../lib/domain'
 import { Modal } from '../ui/Modal'
 
 export function ConsultantPickerModal({
@@ -26,14 +26,14 @@ export function ConsultantPickerModal({
 
   function confirm() {
     if (!selected.length) return
-    let freeHour = 9
-    for (let h = 8; h < 18; h++) {
-      if (selected.every((id) => !isOccupied(appointments, id, date, h))) {
-        freeHour = h
+    let freeSlot = agendaSlots()[0]
+    for (const m of agendaSlots()) {
+      if (selected.every((id) => !isOccupied(appointments, id, date, m))) {
+        freeSlot = m
         break
       }
     }
-    onConfirm(selected, date, `${String(freeHour).padStart(2, '0')}:00`)
+    onConfirm(selected, date, minutesToTime(freeSlot))
   }
 
   return (
