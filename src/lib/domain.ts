@@ -5,6 +5,7 @@ export function apptColor(a: Pick<Appointment, 'type'>): string {
   if (a.type === 'abordagem') return '#0B2D5B'
   if (a.type === 'fechamento') return '#3FA66B'
   if (a.type === 'entrega') return '#1E7A8C'
+  if (a.type === 'outros') return '#A05A2C'
   return '#6B4FA0'
 }
 
@@ -12,6 +13,7 @@ export function apptTypeLabel(a: Pick<Appointment, 'type' | 'event_kind'>): stri
   if (a.type === 'abordagem') return 'Abordagem'
   if (a.type === 'fechamento') return 'Fechamento'
   if (a.type === 'entrega') return 'Entrega de apólice'
+  if (a.type === 'outros') return 'Outros'
   return a.event_kind || 'Evento interno'
 }
 
