@@ -5,7 +5,7 @@ import type { Anamnese, Appointment } from '../../lib/types'
 import { isManagerRole } from '../../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../../lib/metlifeContract'
 import { agendaSlots, apptColor, apptTypeLabel, isOccupied, minutesToTime, statusColors, statusLabel } from '../../lib/domain'
-import { dateLabel, dstr, formatCurrencyTyped, parseCurrency, WEEKDAYS } from '../../lib/format'
+import { dateLabel, dstr, formatCurrencyTyped, parseCurrency, toTitleCase, WEEKDAYS } from '../../lib/format'
 import { buildAnamneseSections } from '../../lib/anamnese'
 import { Modal } from '../ui/Modal'
 import { AnamneseForm } from './AnamneseForm'
@@ -51,6 +51,8 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const [draft, setDraft] = useState<Anamnese>(appt.anamnese)
   const [selectedProduct, setSelectedProduct] = useState('')
   const [premiumInput, setPremiumInput] = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState(appt.client_name)
 
   const consultant = consultants.find((c) => c.id === appt.consultant_id)
   const sc = statusColors(appt.status)
@@ -143,11 +145,71 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
     setEditingAnamnese(false)
   }
 
+  // Abordagem/fechamento/entrega for the same client are only linked by
+  // matching consultant_id + client_name (no shared client id), so a rename
+  // has to cascade to every appointment under the old name — otherwise the
+  // already-created fechamento/entrega silently falls out of that match and
+  // looks like it doesn't exist.
+  async function saveName() {
+    const trimmed = nameDraft.trim()
+    if (!trimmed) {
+      setEditingName(false)
+      return
+    }
+    const newName = toTitleCase(trimmed)
+    if (newName !== appt.client_name) {
+      const oldName = appt.client_name
+      const sameClient = appointments.filter((a) => a.consultant_id === appt.consultant_id && a.client_name === oldName)
+      for (const a of sameClient) {
+        await updateAppointment(a.id, { client_name: newName })
+      }
+    }
+    setEditingName(false)
+  }
+
   return (
     <Modal onClose={onClose}>
       <div className="flex items-start justify-between mb-1.5">
-        <div>
-          <div className="font-heading font-bold text-[19px]">{appt.client_name}</div>
+        <div className="flex-1 min-w-0">
+          {editingName ? (
+            <div className="flex items-center gap-1.5 no-print">
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveName()}
+                className="font-heading font-bold text-[16px] border border-[#D8D5CD] rounded-lg px-2 py-1 flex-1 min-w-0"
+              />
+              <button type="button" onClick={saveName} className="bg-navy text-white border-none rounded-lg px-2.5 py-1.5 text-xs font-bold">
+                Salvar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(appt.client_name)
+                  setEditingName(false)
+                }}
+                className="bg-transparent border-none text-text-muted text-xs font-bold"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <div className="font-heading font-bold text-[19px] truncate">{appt.client_name}</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(appt.client_name)
+                  setEditingName(true)
+                }}
+                className="bg-transparent border-none text-text-faint text-[13px] no-print"
+                title="Editar nome"
+              >
+                ✏️
+              </button>
+            </div>
+          )}
           <div className="text-[12.5px] text-text-muted">
             {consultant?.name} · {dateLabel(appt.date)} às {appt.time}
           </div>
