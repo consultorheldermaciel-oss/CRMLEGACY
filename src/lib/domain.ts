@@ -17,9 +17,11 @@ export function apptTypeLabel(a: Pick<Appointment, 'type' | 'event_kind'>): stri
   return a.event_kind || 'Evento interno'
 }
 
-/** Agenda grid runs 08:00–18:00 in 30-minute slots. */
+/** Agenda grid runs 08:00–18:00 in 30-minute slots by default; day/week views
+ * offer a per-view toggle to extend it through 20:00. */
 export const AGENDA_START_HOUR = 8
 export const AGENDA_END_HOUR = 18
+export const AGENDA_EXTENDED_END_HOUR = 20
 export const AGENDA_SLOT_MINUTES = 30
 
 export function timeToMinutes(time: string): number {
@@ -33,10 +35,11 @@ export function minutesToTime(mins: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-/** Every 30-minute mark (in minutes-since-midnight) the agenda offers, 08:00 through 17:30. */
-export function agendaSlots(): number[] {
+/** Every 30-minute mark (in minutes-since-midnight) the agenda offers, 08:00
+ * through `endHour` (exclusive) — 17:30 by default, or 19:30 when extended. */
+export function agendaSlots(endHour: number = AGENDA_END_HOUR): number[] {
   const slots: number[] = []
-  for (let m = AGENDA_START_HOUR * 60; m < AGENDA_END_HOUR * 60; m += AGENDA_SLOT_MINUTES) slots.push(m)
+  for (let m = AGENDA_START_HOUR * 60; m < endHour * 60; m += AGENDA_SLOT_MINUTES) slots.push(m)
   return slots
 }
 

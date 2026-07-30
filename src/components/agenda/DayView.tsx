@@ -1,7 +1,17 @@
 import { useState } from 'react'
 import { useCrm } from '../../context/CrmContext'
 import { dstr, MONTHS } from '../../lib/format'
-import { agendaSlots, apptColor, apptSpan, apptTypeLabel, minutesToTime, statusLabel, timeToMinutes } from '../../lib/domain'
+import {
+  AGENDA_END_HOUR,
+  AGENDA_EXTENDED_END_HOUR,
+  agendaSlots,
+  apptColor,
+  apptSpan,
+  apptTypeLabel,
+  minutesToTime,
+  statusLabel,
+  timeToMinutes,
+} from '../../lib/domain'
 import type { Appointment, AppointmentType, Profile } from '../../lib/types'
 
 export function DayView({
@@ -26,12 +36,13 @@ export function DayView({
   const { updateAppointment } = useCrm()
   const [cursor, setCursor] = useState(() => new Date())
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
+  const [extended, setExtended] = useState(false)
   const ds = dstr(cursor.getFullYear(), cursor.getMonth(), cursor.getDate())
   const columns = isGestorView ? consultants.map((c) => ({ id: c.id, name: c.name.split(' ')[0] })) : (() => {
     const c = consultants.find((x) => x.id === viewingId)
     return [{ id: viewingId, name: c?.name.split(' ')[0] ?? 'Eu' }]
   })()
-  const slots = agendaSlots()
+  const slots = agendaSlots(extended ? AGENDA_EXTENDED_END_HOUR : AGENDA_END_HOUR)
 
   function shiftDay(delta: number) {
     setCursor((c) => {
@@ -164,6 +175,13 @@ export function DayView({
           })}
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => setExtended((v) => !v)}
+        className="bg-transparent border-none text-navy text-[12.5px] font-bold mt-2.5 p-0"
+      >
+        {extended ? `🔼 Voltar até ${AGENDA_END_HOUR}h` : `🔽 Estender agenda até ${AGENDA_EXTENDED_END_HOUR}h`}
+      </button>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useCrm } from '../../context/CrmContext'
 import { dstr, WEEKDAYS } from '../../lib/format'
-import { agendaSlots, apptColor, apptSpan, minutesToTime, timeToMinutes } from '../../lib/domain'
+import { AGENDA_END_HOUR, AGENDA_EXTENDED_END_HOUR, agendaSlots, apptColor, apptSpan, minutesToTime, timeToMinutes } from '../../lib/domain'
 import type { Appointment, Profile } from '../../lib/types'
 
 function mondayOf(d: Date) {
@@ -30,6 +30,7 @@ export function WeekView({
   const { updateAppointment } = useCrm()
   const [anchor, setAnchor] = useState(() => new Date())
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
+  const [extended, setExtended] = useState(false)
   const monday = mondayOf(anchor)
   const days = [0, 1, 2, 3, 4].map((i) => {
     const dt = new Date(monday)
@@ -41,7 +42,7 @@ export function WeekView({
     dt.setDate(monday.getDate() + i)
     return `${WEEKDAYS[dt.getDay()]} ${dt.getDate()}`
   })
-  const slots = agendaSlots()
+  const slots = agendaSlots(extended ? AGENDA_EXTENDED_END_HOUR : AGENDA_END_HOUR)
   const consultantById = new Map(consultants.map((c) => [c.id, c]))
 
   function shiftWeek(delta: number) {
@@ -221,6 +222,13 @@ export function WeekView({
           })}
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => setExtended((v) => !v)}
+        className="bg-transparent border-none text-navy text-[12.5px] font-bold mt-2.5 p-0"
+      >
+        {extended ? `🔼 Voltar até ${AGENDA_END_HOUR}h` : `🔽 Estender agenda até ${AGENDA_EXTENDED_END_HOUR}h`}
+      </button>
     </div>
   )
 }
