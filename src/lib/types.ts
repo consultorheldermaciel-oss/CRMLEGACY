@@ -104,6 +104,8 @@ export interface Appointment {
   policy_closed: boolean | null
   premium: number | null
   product: string | null
+  capital_segurado: number | null
+  recommendations: number
   policy_delivered: boolean | null
   fechamento_agendado: boolean
   linked_appointment_id: string | null

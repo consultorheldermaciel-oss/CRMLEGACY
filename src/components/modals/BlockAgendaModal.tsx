@@ -37,6 +37,8 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
       policy_closed: null,
       premium: null,
       product: null,
+      capital_segurado: null,
+      recommendations: 0,
       policy_delivered: null,
       fechamento_agendado: false,
       linked_appointment_id: null,

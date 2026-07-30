@@ -7,6 +7,7 @@ import { toTitleCase } from '../lib/format'
 import type { DailyGoals, Dependent, ExtraGoal, Profile, UserRole } from '../lib/types'
 import { CONSULTANT_COLOR_SWATCHES } from '../lib/types'
 import { Avatar } from '../components/ui/Avatar'
+import { WeeklyReportModal } from '../components/modals/WeeklyReportModal'
 
 type InviteFn = (payload: {
   name: string
@@ -36,6 +37,7 @@ export function EquipePage() {
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteResult, setInviteResult] = useState<{ name: string; link: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  const [showReport, setShowReport] = useState(false)
 
   if (!profile) return null
   const isDiretor = profile.role === 'diretor'
@@ -84,7 +86,18 @@ export function EquipePage() {
     <div className="grid gap-5 items-start" style={{ gridTemplateColumns: editing ? '360px 1fr' : '1fr' }}>
       <div className="flex flex-col gap-5">
       <div className="bg-card border border-border rounded-2xl p-4.5">
-        <div className="font-heading font-bold text-[17px] mb-3.5">{roleLabelPlural}</div>
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="font-heading font-bold text-[17px]">{roleLabelPlural}</div>
+          {!isDiretor && (
+            <button
+              type="button"
+              onClick={() => setShowReport(true)}
+              className="bg-navy text-white border-none rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap"
+            >
+              📊 Relatório semanal
+            </button>
+          )}
+        </div>
         <div className="flex flex-col gap-2 mb-4">
           {team.map((c) => (
             <div
@@ -206,6 +219,8 @@ export function EquipePage() {
           onClose={() => setEditingId(null)}
         />
       )}
+
+      {showReport && <WeeklyReportModal team={team} onClose={() => setShowReport(false)} />}
     </div>
   )
 }

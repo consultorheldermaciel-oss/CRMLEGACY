@@ -51,6 +51,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const [draft, setDraft] = useState<Anamnese>(appt.anamnese)
   const [selectedProduct, setSelectedProduct] = useState('')
   const [premiumInput, setPremiumInput] = useState('')
+  const [capitalSeguradoInput, setCapitalSeguradoInput] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(appt.client_name)
 
@@ -102,6 +103,8 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       policy_closed: null,
       premium: null,
       product: null,
+      capital_segurado: null,
+      recommendations: 0,
       policy_delivered: null,
       fechamento_agendado: false,
       linked_appointment_id: appt.id,
@@ -125,6 +128,8 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       policy_closed: appt.policy_closed,
       premium: appt.premium,
       product: appt.product,
+      capital_segurado: appt.capital_segurado,
+      recommendations: 0,
       policy_delivered: null,
       fechamento_agendado: false,
       linked_appointment_id: appt.id,
@@ -137,6 +142,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       policy_closed: true,
       premium: parseCurrency(premiumInput),
       product: selectedProduct || METLIFE_PRODUCT_LABELS[0],
+      capital_segurado: capitalSeguradoInput ? parseCurrency(capitalSeguradoInput) : null,
     })
   }
 
@@ -231,6 +237,26 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
             ⭐ líder de unidade solicitado
           </span>
         )}
+      </div>
+
+      <div className="flex items-center gap-2 mb-4 no-print">
+        <span className="text-[12.5px] font-semibold text-text-muted">🎗️ Indicações conseguidas:</span>
+        <button
+          type="button"
+          disabled={appt.recommendations <= 0}
+          onClick={() => updateAppointment(appt.id, { recommendations: Math.max(0, appt.recommendations - 1) })}
+          className="w-6 h-6 rounded-full border border-[#D8D5CD] bg-white text-[13px] font-bold disabled:opacity-40"
+        >
+          −
+        </button>
+        <span className="text-[13px] font-bold w-4 text-center">{appt.recommendations}</span>
+        <button
+          type="button"
+          onClick={() => updateAppointment(appt.id, { recommendations: appt.recommendations + 1 })}
+          className="w-6 h-6 rounded-full border border-[#D8D5CD] bg-white text-[13px] font-bold"
+        >
+          +
+        </button>
       </div>
 
       {showAgendarFechamentoButton && !appt.fechamento_agendado && (
@@ -408,17 +434,23 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
               </button>
             ))}
           </div>
-          <div className="flex gap-2 items-center flex-wrap">
+          <div className="flex gap-2 items-center flex-wrap mb-2">
             <input
               value={premiumInput}
               onChange={(e) => setPremiumInput(formatCurrencyTyped(e.target.value))}
               placeholder="Valor do prêmio mensal (R$)"
               className="border border-[#D8D5CD] rounded-lg px-3 py-2 text-[13px] flex-1 min-w-[180px]"
             />
-            <button type="button" onClick={confirmPolicyClosed} className="bg-green text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold">
-              Confirmar fechamento
-            </button>
+            <input
+              value={capitalSeguradoInput}
+              onChange={(e) => setCapitalSeguradoInput(formatCurrencyTyped(e.target.value))}
+              placeholder="Capital segurado — capital de morte (R$)"
+              className="border border-[#D8D5CD] rounded-lg px-3 py-2 text-[13px] flex-1 min-w-[180px]"
+            />
           </div>
+          <button type="button" onClick={confirmPolicyClosed} className="bg-green text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold">
+            Confirmar fechamento
+          </button>
         </div>
       )}
 
