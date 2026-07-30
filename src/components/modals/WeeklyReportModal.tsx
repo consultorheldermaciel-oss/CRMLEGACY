@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import { useCrm } from '../../context/CrmContext'
-import { Modal, ModalHeader } from '../ui/Modal'
+import { Modal } from '../ui/Modal'
+import { LogoMark } from '../ui/LogoMark'
 import { fmtBRL } from '../../lib/format'
 import { buildWeeklyReport, downloadCsv, weeklyReportCsv, weekRange } from '../../lib/report'
 import type { Profile } from '../../lib/types'
+
+function round1(n: number) {
+  return Math.round(n * 10) / 10
+}
 
 export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose: () => void }) {
   const { appointments } = useCrm()
   const [anchor, setAnchor] = useState(() => new Date())
   const { start, end, startDate, endDate } = weekRange(anchor)
-  const { rows, totals } = buildWeeklyReport(appointments, team, start, end)
+  const { rows, totals, averages } = buildWeeklyReport(appointments, team, start, end)
 
   function shiftWeek(delta: number) {
     setAnchor((a) => {
@@ -20,7 +25,7 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
   }
 
   function handleDownloadCsv() {
-    const csv = weeklyReportCsv(rows, totals, start, end)
+    const csv = weeklyReportCsv(rows, totals, averages, start, end)
     downloadCsv(`relatorio-produtividade-${start}-a-${end}.csv`, csv)
   }
 
@@ -28,7 +33,18 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
 
   return (
     <Modal onClose={onClose} maxWidth={880}>
-      <ModalHeader title="Relatório semanal de produtividade" onClose={onClose} />
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <LogoMark size={32} />
+          <div>
+            <div className="font-heading font-bold text-[13px] leading-tight">Legacy — Gestão e Desenvolvimento</div>
+            <div className="font-heading font-bold text-lg leading-tight">Relatório semanal de produtividade</div>
+          </div>
+        </div>
+        <button type="button" onClick={onClose} className="bg-transparent border-none text-2xl text-text-faint no-print">
+          ×
+        </button>
+      </div>
 
       <div className="flex items-center justify-center gap-3 mb-4 no-print">
         <button type="button" onClick={() => shiftWeek(-1)} className="text-text-muted px-2 font-bold">
@@ -85,8 +101,17 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
               <td className="text-right py-2 px-2">{fmtBRL(totals.valorApolices)}</td>
               <td className="text-right py-2 pl-2">{fmtBRL(totals.capitalSegurado)}</td>
             </tr>
+            <tr className="text-text-muted italic">
+              <td className="py-2 pr-2">Média por consultor</td>
+              <td className="text-right py-2 px-2">{round1(averages.abordagens)}</td>
+              <td className="text-right py-2 px-2">{round1(averages.fechamentos)}</td>
+              <td className="text-right py-2 px-2">{round1(averages.recomendacoes)}</td>
+              <td className="text-right py-2 px-2">{round1(averages.apolicesFechadas)}</td>
+              <td className="text-right py-2 px-2">{fmtBRL(averages.valorApolices)}</td>
+              <td className="text-right py-2 pl-2">{fmtBRL(averages.capitalSegurado)}</td>
+            </tr>
             <tr>
-              <td className="py-2 pr-2 font-semibold">Prêmio médio da equipe</td>
+              <td className="py-2 pr-2 font-semibold">Prêmio médio por apólice fechada</td>
               <td colSpan={6} className="text-right py-2 px-2 font-semibold">
                 {fmtBRL(totals.premioMedio)}
               </td>
