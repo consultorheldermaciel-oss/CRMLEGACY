@@ -57,6 +57,7 @@ export function NewAppointmentModal({
   const [anamnese, setAnamnese] = useState<Anamnese>({})
   const [showAnamnese, setShowAnamnese] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(false)
 
   const isLiderCreator = profile ? isManagerRole(profile.role) : false
   const names = slot.consultantIds
@@ -90,12 +91,14 @@ export function NewAppointmentModal({
 
   async function handleSave() {
     setSaving(true)
+    setSaveError(false)
     const kind = type === 'evento' ? (eventKind === 'Outro' ? eventOther || 'Outro' : eventKind) : null
     const wantsManager = type === 'evento' && kind?.includes('líder') ? true : inviteManager
     const dates = repeatWeekly ? weeklyOccurrences(slot.date) : [slot.date]
+    let allOk = true
     for (const consultantId of slot.consultantIds) {
       for (const date of dates) {
-        await createAppointment({
+        const created = await createAppointment({
           consultant_id: consultantId,
           client_name:
             type === 'evento' ? clientName || kind || 'Evento' : clientName ? toTitleCase(clientName) : 'Novo cliente',
@@ -117,10 +120,12 @@ export function NewAppointmentModal({
           fechamento_agendado: false,
           linked_appointment_id: null,
         })
+        if (!created) allOk = false
       }
     }
     setSaving(false)
-    onClose()
+    if (allOk) onClose()
+    else setSaveError(true)
   }
 
   const weekdayName = WEEKDAYS_FULL[new Date(`${slot.date}T00:00:00`).getDay()]
@@ -307,6 +312,12 @@ export function NewAppointmentModal({
             </div>
           )}
           {showAnamnese && <AnamneseForm draft={anamnese} onChange={setAnamnese} />}
+        </div>
+      )}
+
+      {saveError && (
+        <div className="bg-[#FBE7E7] text-[#B23030] rounded-lg px-3 py-2.5 text-[12.5px] font-semibold mt-4">
+          ⚠️ Não deu pra salvar o agendamento. Tente de novo — se continuar falhando, avise seu líder.
         </div>
       )}
 

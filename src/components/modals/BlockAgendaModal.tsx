@@ -17,12 +17,14 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
   const [duration, setDuration] = useState(1)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(false)
 
   if (!profile) return null
 
   async function handleSave() {
     setSaving(true)
-    await createAppointment({
+    setSaveError(false)
+    const created = await createAppointment({
       consultant_id: profile!.id,
       client_name: note.trim() || 'Indisponível',
       type: 'evento',
@@ -44,7 +46,8 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
       linked_appointment_id: null,
     })
     setSaving(false)
-    onClose()
+    if (created) onClose()
+    else setSaveError(true)
   }
 
   return (
@@ -127,6 +130,12 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
         placeholder="Motivo (opcional)"
         className="w-full border border-[#D8D5CD] rounded-lg px-3.5 py-2.5 text-sm mb-4"
       />
+
+      {saveError && (
+        <div className="bg-[#FBE7E7] text-[#B23030] rounded-lg px-3 py-2.5 text-[12.5px] font-semibold mb-3">
+          ⚠️ Não deu pra bloquear a agenda. Tente de novo.
+        </div>
+      )}
 
       <button
         type="button"

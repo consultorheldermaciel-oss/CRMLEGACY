@@ -54,6 +54,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const [capitalSeguradoInput, setCapitalSeguradoInput] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(appt.client_name)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const consultant = consultants.find((c) => c.id === appt.consultant_id)
   const sc = statusColors(appt.status)
@@ -87,8 +88,8 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   }
 
   async function confirmAgendarFechamento(time: string) {
-    await updateAppointment(appt.id, { fechamento_agendado: true })
-    await createAppointment({
+    setActionError(null)
+    const created = await createAppointment({
       consultant_id: appt.consultant_id,
       client_name: appt.client_name,
       type: 'fechamento',
@@ -109,11 +110,17 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       fechamento_agendado: false,
       linked_appointment_id: appt.id,
     })
+    if (!created) {
+      setActionError('Não deu pra agendar o fechamento. Tente de novo.')
+      return
+    }
+    await updateAppointment(appt.id, { fechamento_agendado: true })
     setShowAgendarFechamento(false)
   }
 
   async function confirmAgendarEntrega(time: string) {
-    await createAppointment({
+    setActionError(null)
+    const created = await createAppointment({
       consultant_id: appt.consultant_id,
       client_name: appt.client_name,
       type: 'entrega',
@@ -134,6 +141,10 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       fechamento_agendado: false,
       linked_appointment_id: appt.id,
     })
+    if (!created) {
+      setActionError('Não deu pra agendar a entrega. Tente de novo.')
+      return
+    }
     setShowAgendarEntrega(false)
   }
 
@@ -224,6 +235,12 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           ×
         </button>
       </div>
+
+      {actionError && (
+        <div className="bg-[#FBE7E7] text-[#B23030] rounded-lg px-3 py-2.5 text-[12.5px] font-semibold mb-4 no-print">
+          ⚠️ {actionError}
+        </div>
+      )}
 
       <div className="flex gap-1.5 flex-wrap mb-4">
         <span className="text-white text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: apptColor(appt) }}>
