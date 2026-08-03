@@ -7,19 +7,24 @@ export function daysBetween(dateStr: string, today: Date): number {
   return Math.floor((startOfToday.getTime() - date.getTime()) / 86400000)
 }
 
-export type VirtualClientBucket = 'naoProtocolado' | 'delay' | 'outros'
+export type VirtualClientBucket = 'carteira' | 'naoConcluido' | 'delay' | 'outros'
 
 /** Classifies a client that only exists through their appointments (not yet
- * promoted to the real Carteira) by their most recent appointment:
- *   - naoProtocolado: had a fechamento meeting, attended, but nothing closed yet
- *   - delay: was a no-show (faltou / avisou que não iria) for a scheduled meeting
- *   - outros: anything else (still upcoming, rescheduled, etc.) */
+ * promoted to the real Carteira) into one of the líder's 3 buckets:
+ *   - carteira: some appointment already closed a policy (legacy data safety
+ *     net — normally closing auto-promotes to a real Client, but this covers
+ *     appointments closed before that existed, or if it ever fails)
+ *   - naoConcluido: most recent meeting happened (compareceu) but no policy
+ *     closed yet — "abordagens realizadas que não concluiu venda"
+ *   - delay: was a no-show (faltou / avisou que não iria) — "abordagens
+ *     agendadas mas não realizadas"
+ *   - outros: still upcoming / rescheduled — hasn't happened yet either way */
 export function classifyVirtualClient(appts: Appointment[]): { bucket: VirtualClientBucket; last: Appointment } {
   const sorted = [...appts].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
   const last = sorted[sorted.length - 1]
-  if (last.type === 'fechamento' && last.status === 'compareceu' && last.policy_closed === null) {
-    return { bucket: 'naoProtocolado', last }
-  }
+  const closedAppt = sorted.find((a) => a.policy_closed === true)
+  if (closedAppt) return { bucket: 'carteira', last: closedAppt }
+  if (last.status === 'compareceu') return { bucket: 'naoConcluido', last }
   if (last.status === 'faltou_sem_avisar' || last.status === 'avisou_nao_ira') {
     return { bucket: 'delay', last }
   }
@@ -33,7 +38,7 @@ export interface FollowupAlert {
 }
 
 export function followupAlert(
-  bucket: 'naoProtocolado' | 'delay' | 'entrega' | 'recalibrar',
+  bucket: keyof FollowupGoals,
   lastDate: string,
   goals: FollowupGoals,
   today: Date,

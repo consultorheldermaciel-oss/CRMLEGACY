@@ -29,11 +29,13 @@ function clientKey(consultantId: string, name: string) {
   return `${consultantId}::${name.trim().toLowerCase()}`
 }
 
+type CarteiraTab = 'delay' | 'naoConcluido' | 'carteira'
+
 export function CarteiraPage() {
   const { profile } = useAuth()
   const { consultants, clients, policies, appointments, removeClient } = useCrm()
   const { viewingId } = useUi()
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<CarteiraTab>('carteira')
   const [newClientOpen, setNewClientOpen] = useState(false)
   const [retornoFor, setRetornoFor] = useState<{ consultantId: string; name: string } | null>(null)
 
@@ -56,31 +58,28 @@ export function CarteiraPage() {
     })
   const virtualClients = [...virtualMap.values()].sort((a, b) => a.name.localeCompare(b.name))
 
-  const naoProtocolado: { consultantId: string; name: string; last: Appointment }[] = []
+  const naoConcluido: { consultantId: string; name: string; last: Appointment }[] = []
   const delay: { consultantId: string; name: string; last: Appointment }[] = []
-  const outros: { consultantId: string; name: string; appts: Appointment[] }[] = []
+  const virtualCarteira: { consultantId: string; name: string; appts: Appointment[] }[] = []
   virtualClients.forEach((v) => {
     const { bucket, last } = classifyVirtualClient(v.appts)
-    if (bucket === 'naoProtocolado') naoProtocolado.push({ consultantId: v.consultantId, name: v.name, last })
+    if (bucket === 'naoConcluido') naoConcluido.push({ consultantId: v.consultantId, name: v.name, last })
     else if (bucket === 'delay') delay.push({ consultantId: v.consultantId, name: v.name, last })
-    else outros.push(v)
+    else if (bucket === 'carteira') virtualCarteira.push(v)
+    // 'outros' (still upcoming / rescheduled) hasn't happened yet — nothing to show here.
   })
 
-  const protocolClients = scopedClients.filter((c) => policies.some((p) => p.client_id === c.id))
-  const remanescentesClients = scopedClients.filter((c) => !policies.some((p) => p.client_id === c.id))
+  function openRetorno(consultantId: string, name: string) {
+    setRetornoFor({ consultantId, name })
+  }
 
   function renderClientCard(client: Client) {
     const clientPolicies = policies.filter((p) => p.client_id === client.id)
     const consultant = consultants.find((c) => c.id === client.consultant_id)
-    const expanded = expandedId === client.id
     return (
       <div key={client.id} className="bg-card border border-border rounded-2xl p-4">
-        <div className="flex items-center justify-between gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setExpandedId(expanded ? null : client.id)}
-            className="bg-transparent border-none text-left flex-1 min-w-0"
-          >
+        <div className="flex items-center justify-between gap-2.5 flex-wrap mb-3">
+          <div>
             <div className="text-[14px] font-semibold">{client.name}</div>
             <div className="text-[11.5px] text-text-faint">
               {[client.phone, client.birth_date ? dateBr(client.birth_date) : null, isGestorView ? consultant?.name : null]
@@ -88,40 +87,41 @@ export function CarteiraPage() {
                 .join(' · ')}
               {clientPolicies.length > 0 && ` · ${clientPolicies.length} apólice${clientPolicies.length > 1 ? 's' : ''}`}
             </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm(`Remover ${client.name} da carteira? Isso também apaga as apólices dele.`)) removeClient(client.id)
+            }}
+            className="bg-transparent border-none text-[15px] p-1"
+          >
+            🗑️
           </button>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setExpandedId(expanded ? null : client.id)} className="bg-transparent border-none text-[15px] p-1">
-              {expanded ? '▲' : '▼'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm(`Remover ${client.name} da carteira? Isso também apaga as apólices dele.`)) removeClient(client.id)
-              }}
-              className="bg-transparent border-none text-[15px] p-1"
-            >
-              🗑️
-            </button>
-          </div>
         </div>
-
-        {expanded && (
-          <div className="mt-3.5 pt-3.5 border-t border-border">
-            {client.notes && <div className="text-[12.5px] text-text-muted mb-3">{client.notes}</div>}
-            <PolicyList clientId={client.id} consultantId={client.consultant_id} policies={clientPolicies} consultants={consultants} />
-            <ClientTimeline client={client} appointments={scopedAppointments} onSolicitarRetorno={() => setRetornoFor({ consultantId: client.consultant_id, name: client.name })} />
-            <ClientAnamneseSection client={client} />
-          </div>
-        )}
+        {client.notes && <div className="text-[12.5px] text-text-muted mb-3">{client.notes}</div>}
+        <PolicyList clientId={client.id} consultantId={client.consultant_id} policies={clientPolicies} consultants={consultants} />
+        <ClientTimeline
+          consultantId={client.consultant_id}
+          clientName={client.name}
+          appointments={scopedAppointments}
+          onSolicitarRetorno={() => openRetorno(client.consultant_id, client.name)}
+        />
+        <ClientAnamneseSection client={client} />
       </div>
     )
   }
+
+  const TABS: [CarteiraTab, string, number][] = [
+    ['delay', '🔁 Delays', delay.length],
+    ['naoConcluido', '⏳ Realizadas, sem venda', naoConcluido.length],
+    ['carteira', '👥 Carteira Cliente', scopedClients.length + virtualCarteira.length],
+  ]
 
   return (
     <div className="flex flex-col gap-4 max-w-[720px]">
       <div className="flex items-center justify-between flex-wrap gap-2.5">
         <div className="font-heading font-bold text-[17px]">Carteira de Clientes</div>
-        {canAddClient && (
+        {canAddClient && activeTab === 'carteira' && (
           <button
             type="button"
             onClick={() => setNewClientOpen(true)}
@@ -138,48 +138,51 @@ export function CarteiraPage() {
         </div>
       )}
 
-      {naoProtocolado.length > 0 && (
-        <FollowupSection
-          title="⏳ Agendamentos não realizados"
-          hint="Reunião de fechamento aconteceu, mas ainda não protocolou. Não deixa esfriar."
-          items={naoProtocolado}
-          bucket="naoProtocolado"
-          consultants={consultants}
-          isGestorView={isGestorView}
-          onSolicitarRetorno={(consultantId, name) => setRetornoFor({ consultantId, name })}
-        />
-      )}
+      <div className="flex gap-1.5 bg-bg p-1 rounded-lg flex-wrap">
+        {TABS.map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key)}
+            className="rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap"
+            style={{
+              background: activeTab === key ? '#0B2D5B' : 'transparent',
+              color: activeTab === key ? '#fff' : '#1A1D23',
+            }}
+          >
+            {label} ({count})
+          </button>
+        ))}
+      </div>
 
-      {delay.length > 0 && (
+      {activeTab === 'delay' && (
         <FollowupSection
-          title="🔁 Delay — cliente faltou"
-          hint="Agendou mas o cliente não apareceu. Vale a pena retomar contato."
+          hint="Agendou mas o cliente não apareceu — abordagem agendada, mas não realizada. Vale a pena retomar contato."
           items={delay}
           bucket="delay"
           consultants={consultants}
           isGestorView={isGestorView}
-          onSolicitarRetorno={(consultantId, name) => setRetornoFor({ consultantId, name })}
+          appointments={scopedAppointments}
+          onSolicitarRetorno={openRetorno}
         />
       )}
 
-      <div className="flex flex-col gap-2.5">
-        <div className="font-heading font-bold text-[14px] text-text-muted mt-1">✅ Clientes protocolados</div>
-        {protocolClients.map(renderClientCard)}
-        {protocolClients.length === 0 && <div className="text-[12.5px] text-text-faint">Nenhum cliente protocolado ainda.</div>}
-      </div>
+      {activeTab === 'naoConcluido' && (
+        <FollowupSection
+          hint="A reunião aconteceu, mas ainda não fechou venda. Não deixa esfriar."
+          items={naoConcluido}
+          bucket="naoProtocolado"
+          consultants={consultants}
+          isGestorView={isGestorView}
+          appointments={scopedAppointments}
+          onSolicitarRetorno={openRetorno}
+        />
+      )}
 
-      <div className="flex flex-col gap-2.5">
-        <div className="font-heading font-bold text-[14px] text-text-muted mt-1">📇 Clientes remanescentes</div>
-        {remanescentesClients.map(renderClientCard)}
-        {remanescentesClients.length === 0 && canAddClient && (
-          <div className="text-[12.5px] text-text-faint">Nenhum cliente cadastrado ainda.</div>
-        )}
-      </div>
-
-      {outros.length > 0 && (
+      {activeTab === 'carteira' && (
         <div className="flex flex-col gap-2.5">
-          <div className="font-heading font-bold text-[14px] text-text-muted mt-2">Outros agendamentos</div>
-          {outros.map((v) => (
+          {scopedClients.map(renderClientCard)}
+          {virtualCarteira.map((v) => (
             <VirtualClientRow
               key={clientKey(v.consultantId, v.name)}
               virtualClient={v}
@@ -187,6 +190,9 @@ export function CarteiraPage() {
               consultantName={consultants.find((c) => c.id === v.consultantId)?.name}
             />
           ))}
+          {scopedClients.length === 0 && virtualCarteira.length === 0 && (
+            <div className="text-[12.5px] text-text-faint">Nenhum cliente na carteira ainda.</div>
+          )}
         </div>
       )}
 
@@ -210,61 +216,68 @@ function todayStr() {
 }
 
 function FollowupSection({
-  title,
   hint,
   items,
   bucket,
   consultants,
   isGestorView,
+  appointments,
   onSolicitarRetorno,
 }: {
-  title: string
   hint: string
   items: { consultantId: string; name: string; last: Appointment }[]
-  bucket: 'naoProtocolado' | 'delay'
+  bucket: keyof Profile['followup_goals']
   consultants: Profile[]
   isGestorView: boolean
+  appointments: Appointment[]
   onSolicitarRetorno: (consultantId: string, name: string) => void
 }) {
   const today = new Date()
   return (
     <div className="flex flex-col gap-2.5">
-      <div>
-        <div className="font-heading font-bold text-[14px] text-text-muted">{title}</div>
-        <div className="text-[11px] text-text-faint">{hint}</div>
-      </div>
+      <div className="text-[11px] text-text-faint">{hint}</div>
       {items.map((item) => {
         const consultant = consultants.find((c) => c.id === item.consultantId)
         const alert = followupAlert(bucket, item.last.date, consultant?.followup_goals ?? { naoProtocolado: 7, delay: 3, entrega: 30, recalibrar: 365 }, today)
         return (
           <div
             key={`${item.consultantId}::${item.name}`}
-            className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between gap-2.5 flex-wrap"
+            className="bg-card border border-border rounded-2xl p-4"
             style={{ borderColor: alert.overdue ? '#E0A526' : undefined }}
           >
-            <div>
-              <div className="text-[14px] font-semibold">{item.name}</div>
-              <div className="text-[11.5px] text-text-faint">
-                {[isGestorView ? consultant?.name : null, `última reunião em ${dateBr(item.last.date)}`, `há ${alert.days} dia${alert.days !== 1 ? 's' : ''}`]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </div>
-              {alert.overdue && (
-                <div className="text-[11px] font-bold text-[#9C6B0A] mt-1">
-                  ⚠️ Passou do prazo de {alert.limit} dias pra recontatar
+            <div className="flex items-center justify-between gap-2.5 flex-wrap mb-3">
+              <div>
+                <div className="text-[14px] font-semibold">{item.name}</div>
+                <div className="text-[11.5px] text-text-faint">
+                  {[isGestorView ? consultant?.name : null, `última reunião em ${dateBr(item.last.date)}`, `há ${alert.days} dia${alert.days !== 1 ? 's' : ''}`]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </div>
-              )}
+                {alert.overdue && (
+                  <div className="text-[11px] font-bold text-[#9C6B0A] mt-1">
+                    ⚠️ Passou do prazo de {alert.limit} dias pra recontatar
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => onSolicitarRetorno(item.consultantId, item.name)}
+                className="bg-navy text-white border-none rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap"
+              >
+                📅 Agendar retorno
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => onSolicitarRetorno(item.consultantId, item.name)}
-              className="bg-navy text-white border-none rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap"
-            >
-              📅 Agendar retorno
-            </button>
+            <ClientTimeline
+              consultantId={item.consultantId}
+              clientName={item.name}
+              appointments={appointments}
+              onSolicitarRetorno={() => onSolicitarRetorno(item.consultantId, item.name)}
+              hideHeader
+            />
           </div>
         )
       })}
+      {items.length === 0 && <div className="text-[12.5px] text-text-faint">Nada por aqui.</div>}
     </div>
   )
 }
@@ -277,16 +290,20 @@ const TIMELINE_LABELS: Record<string, (n: number) => string> = {
 }
 
 function ClientTimeline({
-  client,
+  consultantId,
+  clientName,
   appointments,
   onSolicitarRetorno,
+  hideHeader,
 }: {
-  client: Client
+  consultantId: string
+  clientName: string
   appointments: Appointment[]
   onSolicitarRetorno: () => void
+  hideHeader?: boolean
 }) {
   const { updateAppointment } = useCrm()
-  const key = clientKey(client.consultant_id, client.name)
+  const key = clientKey(consultantId, clientName)
   const timelineAppts = appointments
     .filter((a) => a.type !== 'evento' && clientKey(a.consultant_id, a.client_name) === key)
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
@@ -296,16 +313,18 @@ function ClientTimeline({
   let fechamentoCount = 0
   return (
     <div className="mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-[11px] font-bold text-text-muted tracking-wide">LINHA DO TEMPO</div>
-        <button
-          type="button"
-          onClick={onSolicitarRetorno}
-          className="bg-transparent border-none text-[11.5px] font-semibold text-navy p-0"
-        >
-          📅 Solicitar retorno
-        </button>
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[11px] font-bold text-text-muted tracking-wide">LINHA DO TEMPO</div>
+          <button
+            type="button"
+            onClick={onSolicitarRetorno}
+            className="bg-transparent border-none text-[11.5px] font-semibold text-navy p-0"
+          >
+            📅 Solicitar retorno
+          </button>
+        </div>
+      )}
       <div className="flex flex-col gap-2.5">
         {timelineAppts.map((a) => {
           if (a.type === 'fechamento') fechamentoCount++
@@ -354,13 +373,14 @@ function VirtualClientRow({
   isGestorView: boolean
   consultantName: string | undefined
 }) {
-  const { createClient, updateClient } = useCrm()
+  const { createClient, updateClient, createPolicy } = useCrm()
   const [promoting, setPromoting] = useState(false)
   const [promoted, setPromoted] = useState(false)
 
   const sorted = [...virtualClient.appts].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
   const last = sorted[sorted.length - 1]
   const sourceAnamnese = [...sorted].reverse().find((a) => a.anamnese && Object.keys(a.anamnese).length > 0)?.anamnese
+  const closedAppt = sorted.find((a) => a.policy_closed === true)
 
   async function handlePromote() {
     setPromoting(true)
@@ -374,6 +394,18 @@ function VirtualClientRow({
     if (created && sourceAnamnese) {
       await updateClient(created.id, { anamnese: sourceAnamnese })
     }
+    if (created && closedAppt) {
+      await createPolicy({
+        client_id: created.id,
+        consultant_id: virtualClient.consultantId,
+        product: closedAppt.product ?? 'Não informado',
+        premium: closedAppt.premium,
+        policy_number: null,
+        issued_date: null,
+        status: 'ativa',
+        document_path: null,
+      })
+    }
     setPromoting(false)
     setPromoted(true)
   }
@@ -381,27 +413,36 @@ function VirtualClientRow({
   if (promoted) return null
 
   return (
-    <div className="bg-card border border-dashed border-border rounded-2xl p-4 flex items-center justify-between gap-2.5 flex-wrap">
-      <div>
-        <div className="text-[14px] font-semibold">{virtualClient.name}</div>
-        <div className="text-[11.5px] text-text-faint">
-          {[
-            isGestorView ? consultantName : null,
-            `${virtualClient.appts.length} agendamento${virtualClient.appts.length > 1 ? 's' : ''}`,
-            last ? `último em ${dateBr(last.date)}` : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
+    <div className="bg-card border border-dashed border-border rounded-2xl p-4">
+      <div className="flex items-center justify-between gap-2.5 flex-wrap mb-3">
+        <div>
+          <div className="text-[14px] font-semibold">{virtualClient.name}</div>
+          <div className="text-[11.5px] text-text-faint">
+            {[
+              isGestorView ? consultantName : null,
+              `${virtualClient.appts.length} agendamento${virtualClient.appts.length > 1 ? 's' : ''}`,
+              last ? `último em ${dateBr(last.date)}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </div>
         </div>
+        <button
+          type="button"
+          disabled={promoting}
+          onClick={handlePromote}
+          className="bg-bg border border-[#D8D5CD] rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-60"
+        >
+          {promoting ? 'Adicionando…' : '📥 Adicionar à carteira'}
+        </button>
       </div>
-      <button
-        type="button"
-        disabled={promoting}
-        onClick={handlePromote}
-        className="bg-bg border border-[#D8D5CD] rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-60"
-      >
-        {promoting ? 'Adicionando…' : '📥 Adicionar à carteira'}
-      </button>
+      <ClientTimeline
+        consultantId={virtualClient.consultantId}
+        clientName={virtualClient.name}
+        appointments={virtualClient.appts}
+        onSolicitarRetorno={() => {}}
+        hideHeader
+      />
     </div>
   )
 }

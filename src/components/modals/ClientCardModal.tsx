@@ -39,7 +39,8 @@ function googleCalendarUrl(appt: Appointment) {
 
 export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose: () => void }) {
   const { profile } = useAuth()
-  const { consultants, appointments, updateAppointment, deleteAppointment, createAppointment } = useCrm()
+  const { consultants, appointments, clients, updateAppointment, deleteAppointment, createAppointment, createClient, updateClient, createPolicy } =
+    useCrm()
   const canDelete = (profile && isManagerRole(profile.role)) || appt.created_by === profile?.id
   const [remarcarActive, setRemarcarActive] = useState(false)
   const [remarcarDate, setRemarcarDate] = useState<string | null>(null)
@@ -152,13 +153,47 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
     setShowAgendarEntrega(false)
   }
 
+  // Closing a policy should always land the client in "Carteira Cliente" — no
+  // separate manual "promote" step — so this creates the real Client/Policy
+  // rows on the spot if the client isn't already in the real Carteira.
   async function confirmPolicyClosed() {
+    const premium = parseCurrency(premiumInput)
+    const product = selectedProduct || METLIFE_PRODUCT_LABELS[0]
+    const capitalSegurado = capitalSeguradoInput ? parseCurrency(capitalSeguradoInput) : null
     await updateAppointment(appt.id, {
       policy_closed: true,
-      premium: parseCurrency(premiumInput),
-      product: selectedProduct || METLIFE_PRODUCT_LABELS[0],
-      capital_segurado: capitalSeguradoInput ? parseCurrency(capitalSeguradoInput) : null,
+      premium,
+      product,
+      capital_segurado: capitalSegurado,
     })
+
+    let client = clients.find(
+      (c) => c.consultant_id === appt.consultant_id && c.name.trim().toLowerCase() === appt.client_name.trim().toLowerCase(),
+    )
+    if (!client) {
+      client = (await createClient({
+        consultant_id: appt.consultant_id,
+        name: appt.client_name,
+        phone: null,
+        birth_date: null,
+        notes: null,
+      })) ?? undefined
+      if (client && appt.anamnese && Object.keys(appt.anamnese).length > 0) {
+        await updateClient(client.id, { anamnese: appt.anamnese })
+      }
+    }
+    if (client) {
+      await createPolicy({
+        client_id: client.id,
+        consultant_id: appt.consultant_id,
+        product,
+        premium,
+        policy_number: null,
+        issued_date: null,
+        status: 'ativa',
+        document_path: null,
+      })
+    }
   }
 
   async function saveAnamnese() {
