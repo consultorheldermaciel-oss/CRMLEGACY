@@ -4,7 +4,7 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { prCadastroProgress } from '../lib/kpi'
 import { toTitleCase } from '../lib/format'
-import type { DailyGoals, Dependent, ExtraGoal, Profile, UserRole } from '../lib/types'
+import type { DailyGoals, Dependent, ExtraGoal, FollowupGoals, Profile, UserRole } from '../lib/types'
 import { CONSULTANT_COLOR_SWATCHES } from '../lib/types'
 import { Avatar } from '../components/ui/Avatar'
 import { WeeklyReportModal } from '../components/modals/WeeklyReportModal'
@@ -24,6 +24,13 @@ const DAILY_GOAL_FIELDS: [keyof DailyGoals, string][] = [
   ['apolicesFechadas', 'Apólices fechadas / dia'],
   ['apolicesEntregues', 'Apólices entregues / dia'],
   ['premioMedio', 'Prêmio médio alvo (R$)'],
+]
+
+const FOLLOWUP_GOAL_FIELDS: [keyof FollowupGoals, string][] = [
+  ['naoProtocolado', 'Recontatar após reunião sem protocolo (dias)'],
+  ['delay', 'Recontatar após cliente faltar — delay (dias)'],
+  ['entrega', 'Entregar apólice após fechar (dias)'],
+  ['recalibrar', 'Retornar pra recalibrar apólice (dias)'],
 ]
 
 export function EquipePage() {
@@ -598,6 +605,27 @@ function EditConsultantPanel({
                   onBlur={(e) =>
                     updateConsultant(editing.id, {
                       daily_goals: { ...editing.daily_goals, [key]: Number(e.target.value) || 0 },
+                    })
+                  }
+                  className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">PRAZOS DE FOLLOW-UP (CARTEIRA)</div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {FOLLOWUP_GOAL_FIELDS.map(([key, label]) => (
+              <label key={key} className="text-[11.5px] text-text-muted flex flex-col gap-1">
+                {label}
+                <input
+                  type="number"
+                  min={1}
+                  defaultValue={editing.followup_goals[key]}
+                  onBlur={(e) =>
+                    updateConsultant(editing.id, {
+                      followup_goals: { ...editing.followup_goals, [key]: Math.max(1, Number(e.target.value) || 1) },
                     })
                   }
                   className="border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[13px]"

@@ -36,10 +36,12 @@ function weeklyOccurrences(startDate: string): string[] {
 export function NewAppointmentModal({
   slot,
   isGestorAggregate,
+  prefillClientName,
   onClose,
 }: {
   slot: NewApptSlot
   isGestorAggregate: boolean
+  prefillClientName?: string
   onClose: () => void
 }) {
   const { profile } = useAuth()
@@ -53,7 +55,7 @@ export function NewAppointmentModal({
   const [repeatWeekly, setRepeatWeekly] = useState(false)
   const [inviteManager, setInviteManager] = useState(false)
   const [liderBusy, setLiderBusy] = useState(false)
-  const [clientName, setClientName] = useState('')
+  const [clientName, setClientName] = useState(prefillClientName ?? '')
   const [anamnese, setAnamnese] = useState<Anamnese>({})
   const [showAnamnese, setShowAnamnese] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -116,6 +118,7 @@ export function NewAppointmentModal({
           product: null,
           capital_segurado: null,
           recommendations: 0,
+          notes: null,
           policy_delivered: null,
           fechamento_agendado: false,
           linked_appointment_id: null,

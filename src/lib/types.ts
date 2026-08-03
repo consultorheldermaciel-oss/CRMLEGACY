@@ -28,6 +28,13 @@ export interface ExtraGoal {
   barColor: string
 }
 
+export interface FollowupGoals {
+  naoProtocolado: number
+  delay: number
+  entrega: number
+  recalibrar: number
+}
+
 export interface Profile {
   id: string
   role: UserRole
@@ -48,6 +55,7 @@ export interface Profile {
   contract_template: string | null
   daily_goals: DailyGoals
   extra_goals: ExtraGoal[]
+  followup_goals: FollowupGoals
   created_at: string
 }
 
@@ -106,6 +114,7 @@ export interface Appointment {
   product: string | null
   capital_segurado: number | null
   recommendations: number
+  notes: string | null
   policy_delivered: boolean | null
   fechamento_agendado: boolean
   linked_appointment_id: string | null

@@ -4,12 +4,15 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { resolveViewScope } from '../lib/viewScope'
 import { formatCurrencyTyped, parseCurrency, toTitleCase } from '../lib/format'
-import type { Anamnese, Appointment, Client, Policy, PolicyStatus } from '../lib/types'
+import { apptTypeLabel, statusColors, statusLabel } from '../lib/domain'
+import { classifyVirtualClient, followupAlert } from '../lib/followup'
+import type { Anamnese, Appointment, Client, Policy, PolicyStatus, Profile } from '../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../lib/metlifeContract'
 import { buildAnamneseSections } from '../lib/anamnese'
 import { Modal, ModalHeader } from '../components/ui/Modal'
 import { AnamneseForm } from '../components/modals/AnamneseForm'
 import { AnamneseSectionsView } from '../components/AnamneseSectionsView'
+import { NewAppointmentModal } from '../components/modals/NewAppointmentModal'
 
 const STATUS_LABELS: Record<PolicyStatus, string> = {
   ativa: 'Ativa',
@@ -32,6 +35,7 @@ export function CarteiraPage() {
   const { viewingId } = useUi()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [newClientOpen, setNewClientOpen] = useState(false)
+  const [retornoFor, setRetornoFor] = useState<{ consultantId: string; name: string } | null>(null)
 
   if (!profile) return null
   const { isGestorView, memberIds } = resolveViewScope(consultants, viewingId)
@@ -51,6 +55,67 @@ export function CarteiraPage() {
       virtualMap.get(key)!.appts.push(a)
     })
   const virtualClients = [...virtualMap.values()].sort((a, b) => a.name.localeCompare(b.name))
+
+  const naoProtocolado: { consultantId: string; name: string; last: Appointment }[] = []
+  const delay: { consultantId: string; name: string; last: Appointment }[] = []
+  const outros: { consultantId: string; name: string; appts: Appointment[] }[] = []
+  virtualClients.forEach((v) => {
+    const { bucket, last } = classifyVirtualClient(v.appts)
+    if (bucket === 'naoProtocolado') naoProtocolado.push({ consultantId: v.consultantId, name: v.name, last })
+    else if (bucket === 'delay') delay.push({ consultantId: v.consultantId, name: v.name, last })
+    else outros.push(v)
+  })
+
+  const protocolClients = scopedClients.filter((c) => policies.some((p) => p.client_id === c.id))
+  const remanescentesClients = scopedClients.filter((c) => !policies.some((p) => p.client_id === c.id))
+
+  function renderClientCard(client: Client) {
+    const clientPolicies = policies.filter((p) => p.client_id === client.id)
+    const consultant = consultants.find((c) => c.id === client.consultant_id)
+    const expanded = expandedId === client.id
+    return (
+      <div key={client.id} className="bg-card border border-border rounded-2xl p-4">
+        <div className="flex items-center justify-between gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setExpandedId(expanded ? null : client.id)}
+            className="bg-transparent border-none text-left flex-1 min-w-0"
+          >
+            <div className="text-[14px] font-semibold">{client.name}</div>
+            <div className="text-[11.5px] text-text-faint">
+              {[client.phone, client.birth_date ? dateBr(client.birth_date) : null, isGestorView ? consultant?.name : null]
+                .filter(Boolean)
+                .join(' · ')}
+              {clientPolicies.length > 0 && ` · ${clientPolicies.length} apólice${clientPolicies.length > 1 ? 's' : ''}`}
+            </div>
+          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setExpandedId(expanded ? null : client.id)} className="bg-transparent border-none text-[15px] p-1">
+              {expanded ? '▲' : '▼'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm(`Remover ${client.name} da carteira? Isso também apaga as apólices dele.`)) removeClient(client.id)
+              }}
+              className="bg-transparent border-none text-[15px] p-1"
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        {expanded && (
+          <div className="mt-3.5 pt-3.5 border-t border-border">
+            {client.notes && <div className="text-[12.5px] text-text-muted mb-3">{client.notes}</div>}
+            <PolicyList clientId={client.id} consultantId={client.consultant_id} policies={clientPolicies} consultants={consultants} />
+            <ClientTimeline client={client} appointments={scopedAppointments} onSolicitarRetorno={() => setRetornoFor({ consultantId: client.consultant_id, name: client.name })} />
+            <ClientAnamneseSection client={client} />
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4 max-w-[720px]">
@@ -73,64 +138,48 @@ export function CarteiraPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2.5">
-        {scopedClients.map((client) => {
-          const clientPolicies = policies.filter((p) => p.client_id === client.id)
-          const consultant = consultants.find((c) => c.id === client.consultant_id)
-          const expanded = expandedId === client.id
-          return (
-            <div key={client.id} className="bg-card border border-border rounded-2xl p-4">
-              <div className="flex items-center justify-between gap-2.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(expanded ? null : client.id)}
-                  className="bg-transparent border-none text-left flex-1 min-w-0"
-                >
-                  <div className="text-[14px] font-semibold">{client.name}</div>
-                  <div className="text-[11.5px] text-text-faint">
-                    {[client.phone, client.birth_date ? dateBr(client.birth_date) : null, isGestorView ? consultant?.name : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                    {clientPolicies.length > 0 && ` · ${clientPolicies.length} apólice${clientPolicies.length > 1 ? 's' : ''}`}
-                  </div>
-                </button>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setExpandedId(expanded ? null : client.id)} className="bg-transparent border-none text-[15px] p-1">
-                    {expanded ? '▲' : '▼'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm(`Remover ${client.name} da carteira? Isso também apaga as apólices dele.`)) removeClient(client.id)
-                    }}
-                    className="bg-transparent border-none text-[15px] p-1"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
+      {naoProtocolado.length > 0 && (
+        <FollowupSection
+          title="⏳ Agendamentos não realizados"
+          hint="Reunião de fechamento aconteceu, mas ainda não protocolou. Não deixa esfriar."
+          items={naoProtocolado}
+          bucket="naoProtocolado"
+          consultants={consultants}
+          isGestorView={isGestorView}
+          onSolicitarRetorno={(consultantId, name) => setRetornoFor({ consultantId, name })}
+        />
+      )}
 
-              {expanded && (
-                <div className="mt-3.5 pt-3.5 border-t border-border">
-                  {client.notes && <div className="text-[12.5px] text-text-muted mb-3">{client.notes}</div>}
-                  <PolicyList clientId={client.id} consultantId={client.consultant_id} policies={clientPolicies} />
-                  <ClientAnamneseSection client={client} />
-                </div>
-              )}
-            </div>
-          )
-        })}
-        {scopedClients.length === 0 && canAddClient && (
+      {delay.length > 0 && (
+        <FollowupSection
+          title="🔁 Delay — cliente faltou"
+          hint="Agendou mas o cliente não apareceu. Vale a pena retomar contato."
+          items={delay}
+          bucket="delay"
+          consultants={consultants}
+          isGestorView={isGestorView}
+          onSolicitarRetorno={(consultantId, name) => setRetornoFor({ consultantId, name })}
+        />
+      )}
+
+      <div className="flex flex-col gap-2.5">
+        <div className="font-heading font-bold text-[14px] text-text-muted mt-1">✅ Clientes protocolados</div>
+        {protocolClients.map(renderClientCard)}
+        {protocolClients.length === 0 && <div className="text-[12.5px] text-text-faint">Nenhum cliente protocolado ainda.</div>}
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        <div className="font-heading font-bold text-[14px] text-text-muted mt-1">📇 Clientes remanescentes</div>
+        {remanescentesClients.map(renderClientCard)}
+        {remanescentesClients.length === 0 && canAddClient && (
           <div className="text-[12.5px] text-text-faint">Nenhum cliente cadastrado ainda.</div>
         )}
       </div>
 
-      {virtualClients.length > 0 && (
+      {outros.length > 0 && (
         <div className="flex flex-col gap-2.5">
-          <div className="font-heading font-bold text-[14px] text-text-muted mt-2">
-            Clientes de agendamentos (ainda não estão na carteira)
-          </div>
-          {virtualClients.map((v) => (
+          <div className="font-heading font-bold text-[14px] text-text-muted mt-2">Outros agendamentos</div>
+          {outros.map((v) => (
             <VirtualClientRow
               key={clientKey(v.consultantId, v.name)}
               virtualClient={v}
@@ -142,6 +191,151 @@ export function CarteiraPage() {
       )}
 
       {newClientOpen && <NewClientModal consultantId={viewingId} onClose={() => setNewClientOpen(false)} />}
+
+      {retornoFor && (
+        <NewAppointmentModal
+          slot={{ consultantIds: [retornoFor.consultantId], date: todayStr(), time: '08:00' }}
+          isGestorAggregate={false}
+          prefillClientName={retornoFor.name}
+          onClose={() => setRetornoFor(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function todayStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function FollowupSection({
+  title,
+  hint,
+  items,
+  bucket,
+  consultants,
+  isGestorView,
+  onSolicitarRetorno,
+}: {
+  title: string
+  hint: string
+  items: { consultantId: string; name: string; last: Appointment }[]
+  bucket: 'naoProtocolado' | 'delay'
+  consultants: Profile[]
+  isGestorView: boolean
+  onSolicitarRetorno: (consultantId: string, name: string) => void
+}) {
+  const today = new Date()
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div>
+        <div className="font-heading font-bold text-[14px] text-text-muted">{title}</div>
+        <div className="text-[11px] text-text-faint">{hint}</div>
+      </div>
+      {items.map((item) => {
+        const consultant = consultants.find((c) => c.id === item.consultantId)
+        const alert = followupAlert(bucket, item.last.date, consultant?.followup_goals ?? { naoProtocolado: 7, delay: 3, entrega: 30, recalibrar: 365 }, today)
+        return (
+          <div
+            key={`${item.consultantId}::${item.name}`}
+            className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between gap-2.5 flex-wrap"
+            style={{ borderColor: alert.overdue ? '#E0A526' : undefined }}
+          >
+            <div>
+              <div className="text-[14px] font-semibold">{item.name}</div>
+              <div className="text-[11.5px] text-text-faint">
+                {[isGestorView ? consultant?.name : null, `última reunião em ${dateBr(item.last.date)}`, `há ${alert.days} dia${alert.days !== 1 ? 's' : ''}`]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+              {alert.overdue && (
+                <div className="text-[11px] font-bold text-[#9C6B0A] mt-1">
+                  ⚠️ Passou do prazo de {alert.limit} dias pra recontatar
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => onSolicitarRetorno(item.consultantId, item.name)}
+              className="bg-navy text-white border-none rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap"
+            >
+              📅 Agendar retorno
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const TIMELINE_LABELS: Record<string, (n: number) => string> = {
+  abordagem: () => 'AB',
+  fechamento: (n) => (n <= 1 ? 'F' : `F${n}`),
+  entrega: () => 'Entrega',
+  outros: () => 'Outros',
+}
+
+function ClientTimeline({
+  client,
+  appointments,
+  onSolicitarRetorno,
+}: {
+  client: Client
+  appointments: Appointment[]
+  onSolicitarRetorno: () => void
+}) {
+  const { updateAppointment } = useCrm()
+  const key = clientKey(client.consultant_id, client.name)
+  const timelineAppts = appointments
+    .filter((a) => a.type !== 'evento' && clientKey(a.consultant_id, a.client_name) === key)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+
+  if (timelineAppts.length === 0) return null
+
+  let fechamentoCount = 0
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[11px] font-bold text-text-muted tracking-wide">LINHA DO TEMPO</div>
+        <button
+          type="button"
+          onClick={onSolicitarRetorno}
+          className="bg-transparent border-none text-[11.5px] font-semibold text-navy p-0"
+        >
+          📅 Solicitar retorno
+        </button>
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {timelineAppts.map((a) => {
+          if (a.type === 'fechamento') fechamentoCount++
+          const label = a.type === 'fechamento' ? TIMELINE_LABELS.fechamento(fechamentoCount) : (TIMELINE_LABELS[a.type]?.(0) ?? a.type)
+          const sc = statusColors(a.status)
+          return (
+            <div key={a.id} className="border border-border rounded-[10px] px-3 py-2.5">
+              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-[#EAF0FA] text-navy">{label}</span>
+                <span className="text-[11.5px] text-text-faint">{dateBr(a.date)}</span>
+                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: sc.bg, color: sc.color }}>
+                  {statusLabel(a.status)}
+                </span>
+                {a.policy_closed && (
+                  <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-[#E4F5EA] text-[#1E7A46]">
+                    ✅ Protocolo — venda concluída
+                  </span>
+                )}
+              </div>
+              <textarea
+                defaultValue={a.notes ?? ''}
+                onBlur={(e) => updateAppointment(a.id, { notes: e.target.value.trim() || null })}
+                placeholder={`Percepção sobre a ${apptTypeLabel(a).toLowerCase()}…`}
+                rows={2}
+                className="w-full border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[12.5px] resize-none"
+              />
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -285,7 +479,20 @@ function NewClientModal({ consultantId, onClose }: { consultantId: string; onClo
   )
 }
 
-function PolicyList({ clientId, consultantId, policies }: { clientId: string; consultantId: string; policies: Policy[] }) {
+function PolicyList({
+  clientId,
+  consultantId,
+  policies,
+  consultants,
+}: {
+  clientId: string
+  consultantId: string
+  policies: Policy[]
+  consultants: Profile[]
+}) {
+  const consultant = consultants.find((c) => c.id === consultantId)
+  const followupGoals = consultant?.followup_goals ?? { naoProtocolado: 7, delay: 3, entrega: 30, recalibrar: 365 }
+  const today = new Date()
   const { createPolicy, updatePolicy, removePolicy, uploadPolicyDocument, getPolicyDocumentUrl } = useCrm()
   const [adding, setAdding] = useState(false)
   const [product, setProduct] = useState(METLIFE_PRODUCT_LABELS[0])
@@ -370,6 +577,10 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
       <div className="flex flex-col gap-2 mb-3">
         {policies.map((p) => {
           const sc = STATUS_COLORS[p.status]
+          const entregaAlert =
+            p.status === 'ativa' && p.issued_date ? followupAlert('entrega', p.issued_date, followupGoals, today) : null
+          const recalibrarAlert =
+            p.status !== 'cancelada' && p.issued_date ? followupAlert('recalibrar', p.issued_date, followupGoals, today) : null
           return (
             <div key={p.id} className="flex items-center justify-between gap-2 border border-border rounded-[10px] px-3 py-2.5 flex-wrap">
               <div>
@@ -379,6 +590,14 @@ function PolicyList({ clientId, consultantId, policies }: { clientId: string; co
                     .filter(Boolean)
                     .join(' · ')}
                 </div>
+                {entregaAlert?.overdue && (
+                  <div className="text-[10.5px] font-bold text-[#9C6B0A] mt-1">
+                    ⚠️ Entregar apólice — passou de {entregaAlert.limit} dias sem entrega
+                  </div>
+                )}
+                {recalibrarAlert?.overdue && (
+                  <div className="text-[10.5px] font-bold text-[#0B2D5B] mt-1">🔄 Hora de retornar pra recalibrar essa apólice</div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <select
