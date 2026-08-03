@@ -4,7 +4,7 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { resolveViewScope } from '../lib/viewScope'
 import { formatCurrencyTyped, parseCurrency, toTitleCase } from '../lib/format'
-import { apptTypeLabel, statusColors, statusLabel } from '../lib/domain'
+import { apptColor, apptTypeLabel, statusColors, statusLabel } from '../lib/domain'
 import { classifyVirtualClient, followupAlert } from '../lib/followup'
 import type { Anamnese, Appointment, Client, Policy, PolicyStatus, Profile } from '../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../lib/metlifeContract'
@@ -303,6 +303,7 @@ function ClientTimeline({
   hideHeader?: boolean
 }) {
   const { updateAppointment } = useCrm()
+  const [openId, setOpenId] = useState<string | null>(null)
   const key = clientKey(consultantId, clientName)
   const timelineAppts = appointments
     .filter((a) => a.type !== 'evento' && clientKey(a.consultant_id, a.client_name) === key)
@@ -311,6 +312,13 @@ function ClientTimeline({
   if (timelineAppts.length === 0) return null
 
   let fechamentoCount = 0
+  const steps = timelineAppts.map((a) => {
+    if (a.type === 'fechamento') fechamentoCount++
+    const label = a.type === 'fechamento' ? TIMELINE_LABELS.fechamento(fechamentoCount) : (TIMELINE_LABELS[a.type]?.(0) ?? a.type)
+    return { appt: a, label, color: apptColor(a) }
+  })
+  const openStep = steps.find((s) => s.appt.id === openId)
+
   return (
     <div className="mb-4">
       {!hideHeader && (
@@ -325,36 +333,71 @@ function ClientTimeline({
           </button>
         </div>
       )}
-      <div className="flex flex-col gap-2.5">
-        {timelineAppts.map((a) => {
-          if (a.type === 'fechamento') fechamentoCount++
-          const label = a.type === 'fechamento' ? TIMELINE_LABELS.fechamento(fechamentoCount) : (TIMELINE_LABELS[a.type]?.(0) ?? a.type)
-          const sc = statusColors(a.status)
-          return (
-            <div key={a.id} className="border border-border rounded-[10px] px-3 py-2.5">
-              <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-[#EAF0FA] text-navy">{label}</span>
-                <span className="text-[11.5px] text-text-faint">{dateBr(a.date)}</span>
-                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: sc.bg, color: sc.color }}>
-                  {statusLabel(a.status)}
-                </span>
-                {a.policy_closed && (
-                  <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-[#E4F5EA] text-[#1E7A46]">
-                    ✅ Protocolo — venda concluída
-                  </span>
-                )}
+
+      <div className="overflow-x-auto pb-1">
+        <div className="flex items-stretch" style={{ minWidth: steps.length * 92 }}>
+          {steps.map((step, i) => (
+            <div key={step.appt.id} className="flex items-stretch" style={{ flex: i < steps.length - 1 ? '1 1 auto' : '0 0 auto' }}>
+              <div className="flex flex-col items-center" style={{ width: 92 }}>
+                <div className="h-[34px] flex items-end justify-center px-1">
+                  {i % 2 === 0 && (
+                    <span className="text-[10px] font-semibold text-center leading-tight">{step.label}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(openId === step.appt.id ? null : step.appt.id)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-bold border-2 border-white shrink-0"
+                  style={{ background: step.color, boxShadow: openId === step.appt.id ? `0 0 0 3px ${step.color}55` : '0 0 0 1px #D8D5CD' }}
+                >
+                  {i + 1}
+                </button>
+                <div className="text-[9.5px] text-text-faint mt-1 whitespace-nowrap">{dateBr(step.appt.date)}</div>
+                <div className="h-[24px] flex items-start justify-center px-1">
+                  {i % 2 === 1 && (
+                    <span className="text-[10px] font-semibold text-center leading-tight">{step.label}</span>
+                  )}
+                </div>
               </div>
-              <textarea
-                defaultValue={a.notes ?? ''}
-                onBlur={(e) => updateAppointment(a.id, { notes: e.target.value.trim() || null })}
-                placeholder={`Percepção sobre a ${apptTypeLabel(a).toLowerCase()}…`}
-                rows={2}
-                className="w-full border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[12.5px] resize-none"
-              />
+              {i < steps.length - 1 && <div className="h-[3px] self-center flex-1 min-w-[16px]" style={{ background: step.color }} />}
             </div>
-          )
-        })}
+          ))}
+        </div>
       </div>
+
+      {openStep && (
+        <div className="border border-border rounded-[10px] px-3 py-2.5 mt-2.5">
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: openStep.color }}>
+              {openStep.label} · {apptTypeLabel(openStep.appt)}
+            </span>
+            <input
+              type="date"
+              defaultValue={openStep.appt.date}
+              onChange={(e) => e.target.value && updateAppointment(openStep.appt.id, { date: e.target.value })}
+              className="border border-[#D8D5CD] rounded-lg px-2 py-1 text-[11.5px]"
+            />
+            <span
+              className="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: statusColors(openStep.appt.status).bg, color: statusColors(openStep.appt.status).color }}
+            >
+              {statusLabel(openStep.appt.status)}
+            </span>
+            {openStep.appt.policy_closed && (
+              <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-[#E4F5EA] text-[#1E7A46]">
+                ✅ Protocolo — venda concluída
+              </span>
+            )}
+          </div>
+          <textarea
+            defaultValue={openStep.appt.notes ?? ''}
+            onBlur={(e) => updateAppointment(openStep.appt.id, { notes: e.target.value.trim() || null })}
+            placeholder={`Relato do consultor sobre a ${apptTypeLabel(openStep.appt).toLowerCase()}…`}
+            rows={2}
+            className="w-full border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[12.5px] resize-none"
+          />
+        </div>
+      )}
     </div>
   )
 }
