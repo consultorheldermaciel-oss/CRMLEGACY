@@ -4,7 +4,7 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { resolveViewScope } from '../lib/viewScope'
 import { formatCurrencyTyped, parseCurrency, toTitleCase } from '../lib/format'
-import { apptColor, apptTypeLabel, statusColors, statusLabel } from '../lib/domain'
+import { AGENDA_START_HOUR, apptColor, apptTypeLabel, statusColors, statusLabel } from '../lib/domain'
 import { classifyVirtualClient, followupAlert } from '../lib/followup'
 import type { Anamnese, Appointment, Client, Policy, PolicyStatus, Profile } from '../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../lib/metlifeContract'
@@ -214,7 +214,7 @@ export function CarteiraPage() {
 
       {retornoFor && (
         <NewAppointmentModal
-          slot={{ consultantIds: [retornoFor.consultantId], date: todayStr(), time: '08:00' }}
+          slot={{ consultantIds: [retornoFor.consultantId], date: todayStr(), time: `${String(AGENDA_START_HOUR).padStart(2, '0')}:00` }}
           isGestorAggregate={false}
           prefillClientName={retornoFor.name}
           onClose={() => setRetornoFor(null)}

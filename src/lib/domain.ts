@@ -17,9 +17,9 @@ export function apptTypeLabel(a: Pick<Appointment, 'type' | 'event_kind'>): stri
   return a.event_kind || 'Evento interno'
 }
 
-/** Agenda grid runs 08:00–18:00 in 30-minute slots by default; day/week views
+/** Agenda grid runs 06:00–18:00 in 30-minute slots by default; day/week views
  * offer a per-view toggle to extend it through 20:00. */
-export const AGENDA_START_HOUR = 8
+export const AGENDA_START_HOUR = 6
 export const AGENDA_END_HOUR = 18
 export const AGENDA_EXTENDED_END_HOUR = 20
 export const AGENDA_SLOT_MINUTES = 30

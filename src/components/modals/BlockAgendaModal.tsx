@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
+import { AGENDA_END_HOUR, AGENDA_START_HOUR } from '../../lib/domain'
 import { Modal, ModalHeader } from '../ui/Modal'
 
 function todayStr() {
@@ -13,7 +14,7 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
   const { createAppointment } = useCrm()
   const [date, setDate] = useState(todayStr())
   const [allDay, setAllDay] = useState(true)
-  const [hour, setHour] = useState(8)
+  const [hour, setHour] = useState(AGENDA_START_HOUR)
   const [duration, setDuration] = useState(1)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
@@ -29,9 +30,9 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
       client_name: note.trim() || 'Indisponível',
       type: 'evento',
       event_kind: 'Bloqueio de agenda',
-      duration: allDay ? 10 : duration,
+      duration: allDay ? AGENDA_END_HOUR - AGENDA_START_HOUR : duration,
       date,
-      time: allDay ? '08:00' : `${String(hour).padStart(2, '0')}:00`,
+      time: allDay ? `${String(AGENDA_START_HOUR).padStart(2, '0')}:00` : `${String(hour).padStart(2, '0')}:00`,
       status: 'agendado',
       wants_manager: false,
       locked_by_lider: true,
@@ -103,10 +104,10 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
               Início
               <input
                 type="number"
-                min={8}
-                max={17}
+                min={AGENDA_START_HOUR}
+                max={AGENDA_END_HOUR - 1}
                 value={hour}
-                onChange={(e) => setHour(Math.max(8, Math.min(17, Number(e.target.value) || 8)))}
+                onChange={(e) => setHour(Math.max(AGENDA_START_HOUR, Math.min(AGENDA_END_HOUR - 1, Number(e.target.value) || AGENDA_START_HOUR)))}
                 className="border border-[#D8D5CD] rounded-lg px-2 py-1.5 text-[13px] w-16"
               />
             </label>

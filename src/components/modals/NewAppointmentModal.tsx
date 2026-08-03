@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import type { NewApptSlot } from '../agenda/AgendaPanel'
 import { isManagerRole, type Anamnese, type AppointmentType } from '../../lib/types'
-import { agendaSlots, isOccupied, minutesToTime, timeToMinutes } from '../../lib/domain'
+import { AGENDA_END_HOUR, AGENDA_START_HOUR, agendaSlots, isOccupied, minutesToTime, timeToMinutes } from '../../lib/domain'
 import { Modal, ModalHeader } from '../ui/Modal'
 import { Chip } from '../ui/Chip'
 import { AnamneseForm } from './AnamneseForm'
@@ -78,8 +78,8 @@ export function NewAppointmentModal({
       return
     }
     let cancelled = false
-    const hour = allDay ? 8 : Math.floor(timeToMinutes(time) / 60)
-    const dur = allDay ? 10 : duration
+    const hour = allDay ? AGENDA_START_HOUR : Math.floor(timeToMinutes(time) / 60)
+    const dur = allDay ? AGENDA_END_HOUR - AGENDA_START_HOUR : duration
     checkLiderBusy(slot.date, hour, dur, slot.consultantIds[0]).then((busy) => {
       if (!cancelled) setLiderBusy(busy)
     })
@@ -106,9 +106,9 @@ export function NewAppointmentModal({
             type === 'evento' ? clientName || kind || 'Evento' : clientName ? toTitleCase(clientName) : 'Novo cliente',
           type,
           event_kind: kind,
-          duration: allDay ? 10 : duration,
+          duration: allDay ? AGENDA_END_HOUR - AGENDA_START_HOUR : duration,
           date,
-          time: allDay ? '08:00' : time,
+          time: allDay ? `${pad2(AGENDA_START_HOUR)}:00` : time,
           status: 'agendado',
           wants_manager: wantsManager,
           locked_by_lider: isLiderCreator,
@@ -245,7 +245,9 @@ export function NewAppointmentModal({
           </button>
         </div>
         {allDay ? (
-          <div className="text-[11px] text-text-faint mt-1.5">Vai ocupar o dia inteiro (08:00 às 18:00).</div>
+          <div className="text-[11px] text-text-faint mt-1.5">
+            Vai ocupar o dia inteiro ({pad2(AGENDA_START_HOUR)}:00 às {pad2(AGENDA_END_HOUR)}:00).
+          </div>
         ) : (
           <label className="flex items-center gap-2 text-[12px] text-text-muted mt-2">
             ou duração exata:
