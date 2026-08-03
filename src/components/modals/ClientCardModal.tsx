@@ -55,6 +55,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(appt.client_name)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [recPopup, setRecPopup] = useState<{ then?: () => void } | null>(null)
 
   const consultant = consultants.find((c) => c.id === appt.consultant_id)
   const sc = statusColors(appt.status)
@@ -79,6 +80,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
 
   async function setStatus(status: Appointment['status']) {
     await updateAppointment(appt.id, { status })
+    if (status === 'compareceu') setRecPopup({})
   }
 
   async function confirmRemarcar(time: string) {
@@ -279,7 +281,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       {showAgendarFechamentoButton && !appt.fechamento_agendado && (
         <button
           type="button"
-          onClick={() => setShowAgendarFechamento(true)}
+          onClick={() => setRecPopup({ then: () => setShowAgendarFechamento(true) })}
           className="bg-green text-white border-none rounded-lg px-3.5 py-2.5 text-[13px] font-bold mb-4 no-print"
         >
           📅 Agendar fechamento
@@ -559,6 +561,73 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
             </button>
           </div>
         )}
+      </div>
+
+      {recPopup && (
+        <RecommendationsPromptModal
+          appt={appt}
+          onClose={() => {
+            const then = recPopup.then
+            setRecPopup(null)
+            then?.()
+          }}
+        />
+      )}
+    </Modal>
+  )
+}
+
+function RecommendationsPromptModal({ appt, onClose }: { appt: Appointment; onClose: () => void }) {
+  const { updateAppointment } = useCrm()
+  const [count, setCount] = useState(appt.recommendations)
+  const [saving, setSaving] = useState(false)
+
+  async function confirm() {
+    setSaving(true)
+    await updateAppointment(appt.id, { recommendations: count })
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <Modal onClose={onClose} align="center" maxWidth={340}>
+      <div className="font-heading font-bold text-[15px] mb-1">🎗️ Indicações conseguidas</div>
+      <div className="text-[12.5px] text-text-muted mb-4">
+        Quantas indicações {appt.client_name} te deu nesse encontro?
+      </div>
+      <div className="flex items-center justify-center gap-4 mb-5">
+        <button
+          type="button"
+          onClick={() => setCount((c) => Math.max(0, c - 1))}
+          className="w-10 h-10 rounded-full border border-[#D8D5CD] bg-white text-lg font-bold"
+        >
+          −
+        </button>
+        <span className="text-2xl font-bold w-10 text-center">{count}</span>
+        <button
+          type="button"
+          onClick={() => setCount((c) => c + 1)}
+          className="w-10 h-10 rounded-full border border-[#D8D5CD] bg-white text-lg font-bold"
+        >
+          +
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 bg-transparent border border-[#D8D5CD] rounded-lg py-2.5 text-[13px] font-semibold text-text-muted"
+        >
+          Pular
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={confirm}
+          className="flex-1 bg-navy text-white border-none rounded-lg py-2.5 text-[13px] font-bold disabled:opacity-60"
+        >
+          {saving ? 'Salvando…' : 'Confirmar'}
+        </button>
       </div>
     </Modal>
   )
