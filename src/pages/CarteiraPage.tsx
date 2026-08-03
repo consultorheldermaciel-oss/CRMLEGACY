@@ -13,6 +13,7 @@ import { Modal, ModalHeader } from '../components/ui/Modal'
 import { AnamneseForm } from '../components/modals/AnamneseForm'
 import { AnamneseSectionsView } from '../components/AnamneseSectionsView'
 import { NewAppointmentModal } from '../components/modals/NewAppointmentModal'
+import { Avatar } from '../components/ui/Avatar'
 
 const STATUS_LABELS: Record<PolicyStatus, string> = {
   ativa: 'Ativa',
@@ -79,13 +80,16 @@ export function CarteiraPage() {
     return (
       <div key={client.id} className="bg-card border border-border rounded-2xl p-4">
         <div className="flex items-center justify-between gap-2.5 flex-wrap mb-3">
-          <div>
-            <div className="text-[14px] font-semibold">{client.name}</div>
-            <div className="text-[11.5px] text-text-faint">
-              {[client.phone, client.birth_date ? dateBr(client.birth_date) : null, isGestorView ? consultant?.name : null]
-                .filter(Boolean)
-                .join(' · ')}
-              {clientPolicies.length > 0 && ` · ${clientPolicies.length} apólice${clientPolicies.length > 1 ? 's' : ''}`}
+          <div className="flex items-center gap-2.5">
+            {isGestorView && consultant && <Avatar profile={consultant} size={30} />}
+            <div>
+              <div className="text-[14px] font-semibold">{client.name}</div>
+              <div className="text-[11.5px] text-text-faint">
+                {[client.phone, client.birth_date ? dateBr(client.birth_date) : null, isGestorView ? consultant?.name : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+                {clientPolicies.length > 0 && ` · ${clientPolicies.length} apólice${clientPolicies.length > 1 ? 's' : ''}`}
+              </div>
             </div>
           </div>
           <button
@@ -260,18 +264,21 @@ function FollowupSection({
             style={{ borderColor: alert.overdue ? '#E0A526' : undefined }}
           >
             <div className="flex items-center justify-between gap-2.5 flex-wrap mb-3">
-              <div>
-                <div className="text-[14px] font-semibold">{item.name}</div>
-                <div className="text-[11.5px] text-text-faint">
-                  {[isGestorView ? consultant?.name : null, `última reunião em ${dateBr(item.last.date)}`, `há ${alert.days} dia${alert.days !== 1 ? 's' : ''}`]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </div>
-                {alert.overdue && (
-                  <div className="text-[11px] font-bold text-[#9C6B0A] mt-1">
-                    ⚠️ Passou do prazo de {alert.limit} dias pra recontatar
+              <div className="flex items-center gap-2.5">
+                {isGestorView && consultant && <Avatar profile={consultant} size={30} />}
+                <div>
+                  <div className="text-[14px] font-semibold">{item.name}</div>
+                  <div className="text-[11.5px] text-text-faint">
+                    {[isGestorView ? consultant?.name : null, `última reunião em ${dateBr(item.last.date)}`, `há ${alert.days} dia${alert.days !== 1 ? 's' : ''}`]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </div>
-                )}
+                  {alert.overdue && (
+                    <div className="text-[11px] font-bold text-[#9C6B0A] mt-1">
+                      ⚠️ Passou do prazo de {alert.limit} dias pra recontatar
+                    </div>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
@@ -542,16 +549,23 @@ function VirtualClientRow({
   return (
     <div className="bg-card border border-dashed border-border rounded-2xl p-4">
       <div className="flex items-center justify-between gap-2.5 flex-wrap mb-3">
-        <div>
-          <div className="text-[14px] font-semibold">{virtualClient.name}</div>
-          <div className="text-[11.5px] text-text-faint">
-            {[
-              isGestorView ? consultantName : null,
-              `${virtualClient.appts.length} agendamento${virtualClient.appts.length > 1 ? 's' : ''}`,
-              last ? `último em ${dateBr(last.date)}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+        <div className="flex items-center gap-2.5">
+          {isGestorView &&
+            (() => {
+              const consultant = consultants.find((c) => c.id === virtualClient.consultantId)
+              return consultant ? <Avatar profile={consultant} size={30} /> : null
+            })()}
+          <div>
+            <div className="text-[14px] font-semibold">{virtualClient.name}</div>
+            <div className="text-[11.5px] text-text-faint">
+              {[
+                isGestorView ? consultantName : null,
+                `${virtualClient.appts.length} agendamento${virtualClient.appts.length > 1 ? 's' : ''}`,
+                last ? `último em ${dateBr(last.date)}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </div>
           </div>
         </div>
         <button

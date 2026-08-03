@@ -11,12 +11,12 @@ import { Modal } from '../ui/Modal'
 import { AnamneseForm } from './AnamneseForm'
 import { AnamneseSectionsView } from '../AnamneseSectionsView'
 
-function nextDays(n: number) {
+function nextDays(n: number, offset = 0) {
   const out: string[] = []
   const base = new Date()
   for (let i = 0; i < n; i++) {
     const dt = new Date(base)
-    dt.setDate(base.getDate() + i)
+    dt.setDate(base.getDate() + offset + i)
     out.push(dstr(dt.getFullYear(), dt.getMonth(), dt.getDate()))
   }
   return out
@@ -44,10 +44,13 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const canDelete = (profile && isManagerRole(profile.role)) || appt.created_by === profile?.id
   const [remarcarActive, setRemarcarActive] = useState(false)
   const [remarcarDate, setRemarcarDate] = useState<string | null>(null)
+  const [remarcarOffset, setRemarcarOffset] = useState(0)
   const [showAgendarFechamento, setShowAgendarFechamento] = useState(false)
   const [fechamentoDate, setFechamentoDate] = useState<string | null>(null)
+  const [fechamentoOffset, setFechamentoOffset] = useState(0)
   const [showAgendarEntrega, setShowAgendarEntrega] = useState(false)
   const [entregaDate, setEntregaDate] = useState<string | null>(null)
+  const [entregaOffset, setEntregaOffset] = useState(0)
   const [editingAnamnese, setEditingAnamnese] = useState(false)
   const [draft, setDraft] = useState<Anamnese>(appt.anamnese)
   const [selectedProduct, setSelectedProduct] = useState('')
@@ -60,11 +63,12 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
 
   const consultant = consultants.find((c) => c.id === appt.consultant_id)
   const sc = statusColors(appt.status)
-  const days7 = nextDays(7)
-  const days10 = nextDays(10)
-  const activeRemarcarDate = remarcarDate || days7[0]
-  const activeFechamentoDate = fechamentoDate || days10[0]
-  const activeEntregaDate = entregaDate || days10[0]
+  const remarcarDays = nextDays(7, remarcarOffset)
+  const fechamentoDays = nextDays(7, fechamentoOffset)
+  const entregaDays = nextDays(7, entregaOffset)
+  const activeRemarcarDate = remarcarDate || remarcarDays[0]
+  const activeFechamentoDate = fechamentoDate || fechamentoDays[0]
+  const activeEntregaDate = entregaDate || entregaDays[0]
 
   const showFecharApolicePrompt = appt.type === 'fechamento' && appt.status === 'compareceu' && appt.policy_closed === null
   const showMarkDeliveredButton = !!appt.policy_closed && !appt.policy_delivered
@@ -341,23 +345,41 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           <div className="text-[12.5px] font-bold text-text-muted mb-2.5">
             AGENDAR FECHAMENTO — a abordagem de {dateLabel(appt.date)} continua no calendário
           </div>
-          <div className="flex gap-1.5 mb-3.5 flex-wrap">
-            {days10.map((ds) => {
-              const dt = new Date(ds + 'T00:00:00')
-              const active = activeFechamentoDate === ds
-              return (
-                <button
-                  key={ds}
-                  type="button"
-                  onClick={() => setFechamentoDate(ds)}
-                  className="rounded-lg py-1.5 px-2.5 text-center border min-w-[46px]"
-                  style={{ borderColor: active ? '#0B2D5B' : '#D8D5CD', background: active ? '#0B2D5B' : '#fff', color: active ? '#fff' : '#1A1D23' }}
-                >
-                  <div className="text-[9.5px]">{WEEKDAYS[dt.getDay()]}</div>
-                  <div className="text-sm font-bold">{dt.getDate()}</div>
-                </button>
-              )
-            })}
+          <div className="flex items-center gap-1.5 mb-3.5">
+            <button
+              type="button"
+              disabled={fechamentoOffset === 0}
+              onClick={() => setFechamentoOffset((o) => Math.max(0, o - 7))}
+              className="bg-transparent border-none text-text-muted text-lg font-bold px-1 disabled:opacity-30"
+            >
+              ‹
+            </button>
+            <div className="flex gap-1.5 flex-wrap flex-1">
+              {fechamentoDays.map((ds) => {
+                const dt = new Date(ds + 'T00:00:00')
+                const active = activeFechamentoDate === ds
+                return (
+                  <button
+                    key={ds}
+                    type="button"
+                    onClick={() => setFechamentoDate(ds)}
+                    className="rounded-lg py-1.5 px-2.5 text-center border min-w-[46px]"
+                    style={{ borderColor: active ? '#0B2D5B' : '#D8D5CD', background: active ? '#0B2D5B' : '#fff', color: active ? '#fff' : '#1A1D23' }}
+                  >
+                    <div className="text-[9.5px]">{WEEKDAYS[dt.getDay()]}</div>
+                    <div className="text-sm font-bold">{dt.getDate()}</div>
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setFechamentoOffset((o) => o + 7)}
+              className="bg-transparent border-none text-text-muted text-lg font-bold px-1"
+              title="Ver mais dias"
+            >
+              ›
+            </button>
           </div>
           <div className="text-[12.5px] font-bold text-text-muted mb-2">HORÁRIOS — {dateLabel(activeFechamentoDate)}</div>
           <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
@@ -434,23 +456,41 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       {remarcarActive && (
         <div className="bg-bg rounded-xl p-4 mb-4.5 no-print">
           <div className="text-[12.5px] font-bold text-text-muted mb-2.5">ESCOLHA UM NOVO DIA</div>
-          <div className="flex gap-1.5 mb-3.5 flex-wrap">
-            {days7.map((ds) => {
-              const dt = new Date(ds + 'T00:00:00')
-              const active = activeRemarcarDate === ds
-              return (
-                <button
-                  key={ds}
-                  type="button"
-                  onClick={() => setRemarcarDate(ds)}
-                  className="rounded-lg py-1.5 px-2.5 text-center border min-w-[46px]"
-                  style={{ borderColor: active ? '#0B2D5B' : '#D8D5CD', background: active ? '#0B2D5B' : '#fff', color: active ? '#fff' : '#1A1D23' }}
-                >
-                  <div className="text-[9.5px]">{WEEKDAYS[dt.getDay()]}</div>
-                  <div className="text-sm font-bold">{dt.getDate()}</div>
-                </button>
-              )
-            })}
+          <div className="flex items-center gap-1.5 mb-3.5">
+            <button
+              type="button"
+              disabled={remarcarOffset === 0}
+              onClick={() => setRemarcarOffset((o) => Math.max(0, o - 7))}
+              className="bg-transparent border-none text-text-muted text-lg font-bold px-1 disabled:opacity-30"
+            >
+              ‹
+            </button>
+            <div className="flex gap-1.5 flex-wrap flex-1">
+              {remarcarDays.map((ds) => {
+                const dt = new Date(ds + 'T00:00:00')
+                const active = activeRemarcarDate === ds
+                return (
+                  <button
+                    key={ds}
+                    type="button"
+                    onClick={() => setRemarcarDate(ds)}
+                    className="rounded-lg py-1.5 px-2.5 text-center border min-w-[46px]"
+                    style={{ borderColor: active ? '#0B2D5B' : '#D8D5CD', background: active ? '#0B2D5B' : '#fff', color: active ? '#fff' : '#1A1D23' }}
+                  >
+                    <div className="text-[9.5px]">{WEEKDAYS[dt.getDay()]}</div>
+                    <div className="text-sm font-bold">{dt.getDate()}</div>
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRemarcarOffset((o) => o + 7)}
+              className="bg-transparent border-none text-text-muted text-lg font-bold px-1"
+              title="Ver mais dias"
+            >
+              ›
+            </button>
           </div>
           <div className="text-[12.5px] font-bold text-text-muted mb-2">HORÁRIOS — {dateLabel(activeRemarcarDate)}</div>
           <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
@@ -546,23 +586,41 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           <div className="text-[12.5px] font-bold text-text-muted mb-2.5">
             AGENDAR ENTREGA — o fechamento de {dateLabel(appt.date)} continua no calendário
           </div>
-          <div className="flex gap-1.5 mb-3.5 flex-wrap">
-            {days10.map((ds) => {
-              const dt = new Date(ds + 'T00:00:00')
-              const active = activeEntregaDate === ds
-              return (
-                <button
-                  key={ds}
-                  type="button"
-                  onClick={() => setEntregaDate(ds)}
-                  className="rounded-lg py-1.5 px-2.5 text-center border min-w-[46px]"
-                  style={{ borderColor: active ? '#0B2D5B' : '#D8D5CD', background: active ? '#0B2D5B' : '#fff', color: active ? '#fff' : '#1A1D23' }}
-                >
-                  <div className="text-[9.5px]">{WEEKDAYS[dt.getDay()]}</div>
-                  <div className="text-sm font-bold">{dt.getDate()}</div>
-                </button>
-              )
-            })}
+          <div className="flex items-center gap-1.5 mb-3.5">
+            <button
+              type="button"
+              disabled={entregaOffset === 0}
+              onClick={() => setEntregaOffset((o) => Math.max(0, o - 7))}
+              className="bg-transparent border-none text-text-muted text-lg font-bold px-1 disabled:opacity-30"
+            >
+              ‹
+            </button>
+            <div className="flex gap-1.5 flex-wrap flex-1">
+              {entregaDays.map((ds) => {
+                const dt = new Date(ds + 'T00:00:00')
+                const active = activeEntregaDate === ds
+                return (
+                  <button
+                    key={ds}
+                    type="button"
+                    onClick={() => setEntregaDate(ds)}
+                    className="rounded-lg py-1.5 px-2.5 text-center border min-w-[46px]"
+                    style={{ borderColor: active ? '#0B2D5B' : '#D8D5CD', background: active ? '#0B2D5B' : '#fff', color: active ? '#fff' : '#1A1D23' }}
+                  >
+                    <div className="text-[9.5px]">{WEEKDAYS[dt.getDay()]}</div>
+                    <div className="text-sm font-bold">{dt.getDate()}</div>
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setEntregaOffset((o) => o + 7)}
+              className="bg-transparent border-none text-text-muted text-lg font-bold px-1"
+              title="Ver mais dias"
+            >
+              ›
+            </button>
           </div>
           <div className="text-[12.5px] font-bold text-text-muted mb-2">HORÁRIOS — {dateLabel(activeEntregaDate)}</div>
           <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
