@@ -104,6 +104,7 @@ export function CarteiraPage() {
           consultantId={client.consultant_id}
           clientName={client.name}
           appointments={scopedAppointments}
+          consultants={consultants}
           onSolicitarRetorno={() => openRetorno(client.consultant_id, client.name)}
         />
         <ClientAnamneseSection client={client} />
@@ -188,6 +189,7 @@ export function CarteiraPage() {
               virtualClient={v}
               isGestorView={isGestorView}
               consultantName={consultants.find((c) => c.id === v.consultantId)?.name}
+              consultants={consultants}
             />
           ))}
           {scopedClients.length === 0 && virtualCarteira.length === 0 && (
@@ -271,6 +273,7 @@ function FollowupSection({
               consultantId={item.consultantId}
               clientName={item.name}
               appointments={appointments}
+              consultants={consultants}
               onSolicitarRetorno={() => onSolicitarRetorno(item.consultantId, item.name)}
               hideHeader
             />
@@ -289,16 +292,24 @@ const TIMELINE_LABELS: Record<string, (n: number) => string> = {
   outros: () => 'Outros',
 }
 
+const PENDING_ENTREGA_ID = 'pending-entrega'
+
+type TimelineStep =
+  | { kind: 'real'; id: string; label: string; color: string; date: string; appt: Appointment }
+  | { kind: 'pendingEntrega'; id: typeof PENDING_ENTREGA_ID; label: string; date: string; overdue: boolean; limit: number; closingApptId: string }
+
 function ClientTimeline({
   consultantId,
   clientName,
   appointments,
+  consultants,
   onSolicitarRetorno,
   hideHeader,
 }: {
   consultantId: string
   clientName: string
   appointments: Appointment[]
+  consultants: Profile[]
   onSolicitarRetorno: () => void
   hideHeader?: boolean
 }) {
@@ -312,12 +323,32 @@ function ClientTimeline({
   if (timelineAppts.length === 0) return null
 
   let fechamentoCount = 0
-  const steps = timelineAppts.map((a) => {
+  const steps: TimelineStep[] = timelineAppts.map((a) => {
     if (a.type === 'fechamento') fechamentoCount++
     const label = a.type === 'fechamento' ? TIMELINE_LABELS.fechamento(fechamentoCount) : (TIMELINE_LABELS[a.type]?.(0) ?? a.type)
-    return { appt: a, label, color: apptColor(a) }
+    return { kind: 'real', id: a.id, label, color: apptColor(a), date: a.date, appt: a }
   })
-  const openStep = steps.find((s) => s.appt.id === openId)
+
+  // A closed policy that hasn't been delivered yet gets a placeholder step —
+  // uncolored, with the delivery deadline — until the consultor either marks
+  // it delivered or a real "entrega" appointment shows up in the timeline.
+  const closingAppt = [...timelineAppts].reverse().find((a) => a.policy_closed === true)
+  const hasEntregaStep = timelineAppts.some((a) => a.type === 'entrega')
+  if (closingAppt && !closingAppt.policy_delivered && !hasEntregaStep) {
+    const goals = consultants.find((c) => c.id === consultantId)?.followup_goals ?? { naoProtocolado: 7, delay: 3, entrega: 30, recalibrar: 365 }
+    const alert = followupAlert('entrega', closingAppt.date, goals, new Date())
+    steps.push({
+      kind: 'pendingEntrega',
+      id: PENDING_ENTREGA_ID,
+      label: 'Entrega',
+      date: closingAppt.date,
+      overdue: alert.overdue,
+      limit: alert.limit,
+      closingApptId: closingAppt.id,
+    })
+  }
+
+  const openStep = steps.find((s) => s.id === openId)
 
   return (
     <div className="mb-4">
@@ -336,36 +367,45 @@ function ClientTimeline({
 
       <div className="overflow-x-auto pb-1">
         <div className="flex items-stretch" style={{ minWidth: steps.length * 92 }}>
-          {steps.map((step, i) => (
-            <div key={step.appt.id} className="flex items-stretch" style={{ flex: i < steps.length - 1 ? '1 1 auto' : '0 0 auto' }}>
-              <div className="flex flex-col items-center" style={{ width: 92 }}>
-                <div className="h-[34px] flex items-end justify-center px-1">
-                  {i % 2 === 0 && (
-                    <span className="text-[10px] font-semibold text-center leading-tight">{step.label}</span>
-                  )}
+          {steps.map((step, i) => {
+            const color = step.kind === 'real' ? step.color : step.overdue ? '#E0A526' : '#C7CAD1'
+            return (
+              <div key={step.id} className="flex items-stretch" style={{ flex: i < steps.length - 1 ? '1 1 auto' : '0 0 auto' }}>
+                <div className="flex flex-col items-center" style={{ width: 92 }}>
+                  <div className="h-[34px] flex items-end justify-center px-1">
+                    {i % 2 === 0 && (
+                      <span className="text-[10px] font-semibold text-center leading-tight">{step.label}</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(openId === step.id ? null : step.id)}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-bold border-2 border-white shrink-0"
+                    style={{
+                      background: step.kind === 'pendingEntrega' ? '#fff' : color,
+                      color: step.kind === 'pendingEntrega' ? color : '#fff',
+                      boxShadow: openId === step.id ? `0 0 0 3px ${color}55` : `0 0 0 1px ${step.kind === 'pendingEntrega' ? color : '#D8D5CD'}`,
+                    }}
+                  >
+                    {step.kind === 'pendingEntrega' ? '!' : i + 1}
+                  </button>
+                  <div className="text-[9.5px] text-text-faint mt-1 whitespace-nowrap">
+                    {step.kind === 'pendingEntrega' ? `prazo ${step.limit}d` : dateBr(step.date)}
+                  </div>
+                  <div className="h-[24px] flex items-start justify-center px-1">
+                    {i % 2 === 1 && (
+                      <span className="text-[10px] font-semibold text-center leading-tight">{step.label}</span>
+                    )}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setOpenId(openId === step.appt.id ? null : step.appt.id)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-bold border-2 border-white shrink-0"
-                  style={{ background: step.color, boxShadow: openId === step.appt.id ? `0 0 0 3px ${step.color}55` : '0 0 0 1px #D8D5CD' }}
-                >
-                  {i + 1}
-                </button>
-                <div className="text-[9.5px] text-text-faint mt-1 whitespace-nowrap">{dateBr(step.appt.date)}</div>
-                <div className="h-[24px] flex items-start justify-center px-1">
-                  {i % 2 === 1 && (
-                    <span className="text-[10px] font-semibold text-center leading-tight">{step.label}</span>
-                  )}
-                </div>
+                {i < steps.length - 1 && <div className="h-[3px] self-center flex-1 min-w-[16px]" style={{ background: color }} />}
               </div>
-              {i < steps.length - 1 && <div className="h-[3px] self-center flex-1 min-w-[16px]" style={{ background: step.color }} />}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
-      {openStep && (
+      {openStep?.kind === 'real' && (
         <div className="border border-border rounded-[10px] px-3 py-2.5 mt-2.5">
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
             <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: openStep.color }}>
@@ -398,6 +438,36 @@ function ClientTimeline({
           />
         </div>
       )}
+
+      {openStep?.kind === 'pendingEntrega' && (
+        <div className="border border-border rounded-[10px] px-3 py-2.5 mt-2.5">
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span
+              className="text-[10.5px] font-bold px-2 py-0.5 rounded-full text-white"
+              style={{ background: openStep.overdue ? '#E0A526' : '#9AA0A8' }}
+            >
+              Entrega pendente
+            </span>
+            <span className="text-[11.5px] text-text-faint">venda fechada em {dateBr(openStep.date)}</span>
+          </div>
+          {openStep.overdue ? (
+            <div className="text-[11.5px] font-bold text-[#9C6B0A] mb-2">
+              ⚠️ Passou do prazo de {openStep.limit} dias pra entregar essa apólice.
+            </div>
+          ) : (
+            <div className="text-[11.5px] text-text-muted mb-2">
+              Prazo de {openStep.limit} dias pra entregar essa apólice ainda não venceu.
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => updateAppointment(openStep.closingApptId, { policy_delivered: true })}
+            className="bg-green text-white border-none rounded-lg px-3 py-2 text-[12.5px] font-semibold"
+          >
+            ✅ Marcar apólice como entregue
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -411,10 +481,12 @@ function VirtualClientRow({
   virtualClient,
   isGestorView,
   consultantName,
+  consultants,
 }: {
   virtualClient: { consultantId: string; name: string; appts: Appointment[] }
   isGestorView: boolean
   consultantName: string | undefined
+  consultants: Profile[]
 }) {
   const { createClient, updateClient, createPolicy } = useCrm()
   const [promoting, setPromoting] = useState(false)
@@ -483,6 +555,7 @@ function VirtualClientRow({
         consultantId={virtualClient.consultantId}
         clientName={virtualClient.name}
         appointments={virtualClient.appts}
+        consultants={consultants}
         onSolicitarRetorno={() => {}}
         hideHeader
       />
