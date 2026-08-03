@@ -112,10 +112,10 @@ export function CarteiraPage() {
     )
   }
 
-  const TABS: [CarteiraTab, string, number][] = [
-    ['delay', '🔁 Delays', delay.length],
-    ['naoConcluido', '⏳ Realizadas, sem venda', naoConcluido.length],
-    ['carteira', '👥 Carteira Cliente', scopedClients.length + virtualCarteira.length],
+  const TABS: [CarteiraTab, string, number, string, string][] = [
+    ['delay', '🔁 Delays', delay.length, '#B23030', '#FBE7E7'],
+    ['naoConcluido', '⏳ Realizadas, sem venda', naoConcluido.length, '#9C6B0A', '#FCEFD9'],
+    ['carteira', '👥 Carteira Cliente', scopedClients.length + virtualCarteira.length, '#1E7A46', '#E4F5EA'],
   ]
 
   return (
@@ -139,21 +139,33 @@ export function CarteiraPage() {
         </div>
       )}
 
-      <div className="flex gap-1.5 bg-bg p-1 rounded-lg flex-wrap">
-        {TABS.map(([key, label, count]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveTab(key)}
-            className="rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap"
-            style={{
-              background: activeTab === key ? '#0B2D5B' : 'transparent',
-              color: activeTab === key ? '#fff' : '#1A1D23',
-            }}
-          >
-            {label} ({count})
-          </button>
-        ))}
+      <div className="flex gap-2.5 flex-wrap">
+        {TABS.map(([key, label, count, color, tint]) => {
+          const active = activeTab === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className="rounded-xl px-5 py-3.5 text-[14px] font-bold whitespace-nowrap border-2 transition-transform"
+              style={{
+                background: active ? color : tint,
+                borderColor: color,
+                color: active ? '#fff' : color,
+                boxShadow: active ? `0 3px 10px ${color}55` : undefined,
+                transform: active ? 'scale(1.03)' : undefined,
+              }}
+            >
+              {label}
+              <span
+                className="ml-2 inline-flex items-center justify-center rounded-full text-[12px] font-extrabold px-2 py-0.5"
+                style={{ background: active ? 'rgba(255,255,255,0.25)' : '#fff', color: active ? '#fff' : color }}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {activeTab === 'delay' && (
