@@ -157,6 +157,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   // separate manual "promote" step — so this creates the real Client/Policy
   // rows on the spot if the client isn't already in the real Carteira.
   async function confirmPolicyClosed() {
+    setActionError(null)
     const premium = parseCurrency(premiumInput)
     const product = selectedProduct || METLIFE_PRODUCT_LABELS[0]
     const capitalSegurado = capitalSeguradoInput ? parseCurrency(capitalSeguradoInput) : null
@@ -178,21 +179,26 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         birth_date: null,
         notes: null,
       })) ?? undefined
-      if (client && appt.anamnese && Object.keys(appt.anamnese).length > 0) {
+      if (!client) {
+        setActionError('A venda foi salva, mas não deu pra colocar o cliente na Carteira automaticamente. Use o botão "Adicionar à carteira" na aba Carteira Cliente.')
+        return
+      }
+      if (appt.anamnese && Object.keys(appt.anamnese).length > 0) {
         await updateClient(client.id, { anamnese: appt.anamnese })
       }
     }
-    if (client) {
-      await createPolicy({
-        client_id: client.id,
-        consultant_id: appt.consultant_id,
-        product,
-        premium,
-        policy_number: null,
-        issued_date: null,
-        status: 'ativa',
-        document_path: null,
-      })
+    const createdPolicy = await createPolicy({
+      client_id: client.id,
+      consultant_id: appt.consultant_id,
+      product,
+      premium,
+      policy_number: null,
+      issued_date: null,
+      status: 'ativa',
+      document_path: null,
+    })
+    if (!createdPolicy) {
+      setActionError('O cliente foi colocado na Carteira, mas a apólice não foi salva automaticamente. Adicione a apólice manualmente lá.')
     }
   }
 
