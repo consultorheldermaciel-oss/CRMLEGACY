@@ -78,7 +78,7 @@ export function HotListPage() {
         <div>
           <div className="font-heading font-bold text-[17px]">🔥 Lista HOT</div>
           <div className="text-[12px] text-text-faint">
-            Contatos pra abordar — mercado próprio ou indicações — antes de virarem agendamento.
+            Contatos pra abordar — mercado próprio ou recomendações — antes de virarem agendamento.
           </div>
         </div>
         {canManage && (
@@ -114,7 +114,7 @@ export function HotListPage() {
               onClick={() => setAddOpen(true)}
               className="bg-navy text-white border-none rounded-lg px-3 py-2 text-xs font-semibold"
             >
-              + Indicação avulsa
+              + Recomendação avulsa
             </button>
           </div>
         )}
@@ -145,7 +145,7 @@ export function HotListPage() {
             ))}
             {scopedLeads.length === 0 && (
               <div className="text-[12.5px] text-text-faint">
-                Nenhum contato na lista ainda. Envie a planilha ou adicione uma indicação avulsa.
+                Nenhum contato na lista ainda. Envie a planilha ou adicione uma recomendação avulsa.
               </div>
             )}
           </div>
@@ -246,7 +246,7 @@ function HotLeadRow({
         <div>
           <div className="text-[14px] font-semibold">{lead.name}</div>
           <div className="text-[11.5px] text-text-faint">
-            {[lead.phone, lead.source === 'recomendacao' ? `🗣️ indicação de ${lead.recommended_by ?? '—'}` : '🛒 mercado próprio']
+            {[lead.phone, lead.source === 'recomendacao' ? `recomendação de ${lead.recommended_by ?? '—'}` : '🛒 mercado próprio']
               .filter(Boolean)
               .join(' · ')}
           </div>
@@ -317,7 +317,7 @@ function HotLeadDetailModal({
       )}
 
       <div className="text-[14px] font-semibold mb-3.5">
-        {lead.source === 'recomendacao' ? `🗣️ Indicação de ${lead.recommended_by ?? '—'}` : '🛒 Mercado próprio'}
+        {lead.source === 'recomendacao' ? `Recomendação de ${lead.recommended_by ?? '—'}` : '🛒 Mercado próprio'}
       </div>
 
       {lead.notes && (
@@ -371,7 +371,7 @@ function NewHotLeadModal({ consultantId, onClose }: { consultantId: string; onCl
 
   return (
     <Modal onClose={onClose} align="center" maxWidth={420}>
-      <ModalHeader title="Nova indicação avulsa" onClose={onClose} />
+      <ModalHeader title="Nova recomendação avulsa" onClose={onClose} />
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <label className="text-xs text-text-muted flex flex-col gap-1">
           Nome
@@ -396,7 +396,7 @@ function NewHotLeadModal({ consultantId, onClose }: { consultantId: string; onCl
                   color: source === s ? '#fff' : '#1A1D23',
                 }}
               >
-                {s === 'mercado' ? '🛒 Mercado próprio' : '🗣️ Recomendação'}
+                {s === 'mercado' ? '🛒 Mercado próprio' : 'Recomendação'}
               </button>
             ))}
           </div>
