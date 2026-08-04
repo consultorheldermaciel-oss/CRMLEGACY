@@ -18,6 +18,12 @@ function pad2(n: number) {
 function toDstr(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
+function addDays(dateStr: string, days: number) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  dt.setDate(dt.getDate() + days)
+  return toDstr(dt)
+}
 
 /** Every following occurrence of the same weekday as `startDate`, through Dec 31 of that year. */
 function weeklyOccurrences(startDate: string): string[] {
@@ -49,6 +55,7 @@ export function NewAppointmentModal({
   const [type, setType] = useState<AppointmentType>('abordagem')
   const [eventKind, setEventKind] = useState(EVENT_KINDS[0])
   const [eventOther, setEventOther] = useState('')
+  const [date, setDate] = useState(slot.date)
   const [time, setTime] = useState(slot.time)
   const [duration, setDuration] = useState(1)
   const [allDay, setAllDay] = useState(false)
@@ -66,7 +73,7 @@ export function NewAppointmentModal({
     .map((id) => consultants.find((c) => c.id === id)?.name.split(' ')[0])
     .filter(Boolean)
     .join(', ')
-  const slotLabel = `${names} · ${slot.date.split('-').reverse().join('/')} ${time}`
+  const slotLabel = `${names} · ${date.split('-').reverse().join('/')} ${time}`
 
   // A consultor's client never sees another consultor's appointments (by
   // design), so we can't tell client-side if the lider is already booked at
@@ -80,14 +87,14 @@ export function NewAppointmentModal({
     let cancelled = false
     const hour = allDay ? AGENDA_START_HOUR : Math.floor(timeToMinutes(time) / 60)
     const dur = allDay ? AGENDA_END_HOUR - AGENDA_START_HOUR : duration
-    checkLiderBusy(slot.date, hour, dur, slot.consultantIds[0]).then((busy) => {
+    checkLiderBusy(date, hour, dur, slot.consultantIds[0]).then((busy) => {
       if (!cancelled) setLiderBusy(busy)
     })
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inviteManager, isGestorAggregate, slot.date, time, allDay, duration, slot.consultantIds])
+  }, [inviteManager, isGestorAggregate, date, time, allDay, duration, slot.consultantIds])
 
   if (!profile) return null
 
@@ -96,7 +103,7 @@ export function NewAppointmentModal({
     setSaveError(false)
     const kind = type === 'evento' ? (eventKind === 'Outro' ? eventOther || 'Outro' : eventKind) : null
     const wantsManager = type === 'evento' && kind?.includes('líder') ? true : inviteManager
-    const dates = repeatWeekly ? weeklyOccurrences(slot.date) : [slot.date]
+    const dates = repeatWeekly ? weeklyOccurrences(date) : [date]
     let allOk = true
     for (const consultantId of slot.consultantIds) {
       for (const date of dates) {
@@ -131,8 +138,8 @@ export function NewAppointmentModal({
     else setSaveError(true)
   }
 
-  const weekdayName = WEEKDAYS_FULL[new Date(`${slot.date}T00:00:00`).getDay()]
-  const occurrenceCount = repeatWeekly ? weeklyOccurrences(slot.date).length : 1
+  const weekdayName = WEEKDAYS_FULL[new Date(`${date}T00:00:00`).getDay()]
+  const occurrenceCount = repeatWeekly ? weeklyOccurrences(date).length : 1
 
   return (
     <Modal onClose={onClose}>
@@ -182,13 +189,49 @@ export function NewAppointmentModal({
         </>
       )}
 
+      <div className="mb-4">
+        <div className="text-xs text-text-muted mb-1.5">Data</div>
+        <div className="flex gap-1.5 flex-wrap items-center">
+          {(
+            [
+              ['Hoje', toDstr(new Date())],
+              ['Semana que vem', addDays(toDstr(new Date()), 7)],
+              ['Mês que vem', addDays(toDstr(new Date()), 30)],
+            ] as [string, string][]
+          ).map(([label, d]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setDate(d)}
+              className="border rounded-lg px-3 py-2 text-[12.5px] font-bold"
+              style={{
+                borderColor: date === d ? '#0B2D5B' : '#D8D5CD',
+                background: date === d ? '#0B2D5B' : '#fff',
+                color: date === d ? '#fff' : '#1A1D23',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+            className="border border-[#D8D5CD] rounded-lg px-3 py-2 text-[13px] font-semibold"
+          />
+        </div>
+        <div className="text-[11px] text-text-faint mt-1.5">
+          {weekdayName.charAt(0).toUpperCase() + weekdayName.slice(1)}, {date.split('-').reverse().join('/')}
+        </div>
+      </div>
+
       {!allDay && (
         <div className="mb-4">
           <div className="text-xs text-text-muted mb-1.5">Horário</div>
           <div className="flex gap-1.5 flex-wrap">
             {agendaSlots().map((m) => {
               const t = minutesToTime(m)
-              const busy = slot.consultantIds.some((id) => isOccupied(appointments, id, slot.date, m))
+              const busy = slot.consultantIds.some((id) => isOccupied(appointments, id, date, m))
               return (
                 <button
                   key={m}
