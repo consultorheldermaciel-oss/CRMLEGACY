@@ -207,6 +207,11 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
     setRecPopup({ celebrate: true })
   }
 
+  async function confirmPolicyNotClosed() {
+    setActionError(null)
+    await updateAppointment(appt.id, { policy_closed: false })
+  }
+
   async function saveAnamnese() {
     await updateAppointment(appt.id, { anamnese: draft })
     setEditingAnamnese(false)
@@ -551,9 +556,18 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
               className="border border-[#D8D5CD] rounded-lg px-3 py-2 text-[13px] flex-1 min-w-[180px]"
             />
           </div>
-          <button type="button" onClick={confirmPolicyClosed} className="bg-green text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold">
-            Confirmar fechamento
-          </button>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" onClick={confirmPolicyClosed} className="bg-green text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold">
+              ✅ Confirmar fechamento
+            </button>
+            <button
+              type="button"
+              onClick={confirmPolicyNotClosed}
+              className="bg-[#B23030] text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold"
+            >
+              ❌ Venda não concluída
+            </button>
+          </div>
         </div>
       )}
 
