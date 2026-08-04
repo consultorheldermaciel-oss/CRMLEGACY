@@ -17,7 +17,7 @@ interface CrmState {
   loading: boolean
   refresh: () => Promise<void>
   createAppointment: (
-    payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by'>,
+    payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'reminder_sent'>,
   ) => Promise<Appointment | null>
   updateAppointment: (id: string, patch: Partial<Appointment>) => Promise<void>
   deleteAppointment: (id: string) => Promise<void>
@@ -40,6 +40,9 @@ interface CrmState {
     excludeConsultantId?: string | null,
   ) => Promise<boolean>
   updateMyColor: (color: string) => Promise<{ error: string | null }>
+  updateMyNotifyLeadMinutes: (minutes: number) => Promise<{ error: string | null }>
+  savePushSubscription: (sub: { endpoint: string; p256dh: string; auth: string }) => Promise<{ error: string | null }>
+  removePushSubscription: (endpoint: string) => Promise<void>
   createDependent: (payload: { consultant_id: string; name: string; birth_date: string | null }) => Promise<void>
   updateDependent: (id: string, patch: Partial<Dependent>) => Promise<void>
   removeDependent: (id: string) => Promise<void>
@@ -152,7 +155,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   }, [session, loading, policies, consultants, tasks])
 
   async function createAppointment(
-    payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by'>,
+    payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'reminder_sent'>,
   ) {
     if (!session) return null
     const { data, error } = await supabase
@@ -170,7 +173,13 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   }
 
   async function updateAppointment(id: string, patch: Partial<Appointment>) {
-    const { error } = await supabase.from('appointments').update(patch).eq('id', id)
+    // Rescheduling to a new date/time re-arms the reminder, unless the
+    // caller is explicitly setting reminder_sent itself.
+    const finalPatch =
+      (patch.date !== undefined || patch.time !== undefined) && patch.reminder_sent === undefined
+        ? { ...patch, reminder_sent: false }
+        : patch
+    const { error } = await supabase.from('appointments').update(finalPatch).eq('id', id)
     if (error) console.error(error) // eslint-disable-line no-console
     await refresh()
   }
@@ -260,6 +269,27 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error.message }
     await refresh()
     return { error: null }
+  }
+
+  async function updateMyNotifyLeadMinutes(minutes: number) {
+    const { error } = await supabase.rpc('set_own_notify_lead_minutes', { minutes })
+    if (error) return { error: error.message }
+    await refresh()
+    return { error: null }
+  }
+
+  async function savePushSubscription(sub: { endpoint: string; p256dh: string; auth: string }) {
+    if (!session) return { error: 'Não autenticado.' }
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      { consultant_id: session.user.id, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+      { onConflict: 'endpoint' },
+    )
+    if (error) return { error: error.message }
+    return { error: null }
+  }
+
+  async function removePushSubscription(endpoint: string) {
+    await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
   }
 
   async function createDependent(payload: { consultant_id: string; name: string; birth_date: string | null }) {
@@ -411,6 +441,9 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       toggleHierarchy,
       checkLiderBusy,
       updateMyColor,
+      updateMyNotifyLeadMinutes,
+      savePushSubscription,
+      removePushSubscription,
       createDependent,
       updateDependent,
       removeDependent,

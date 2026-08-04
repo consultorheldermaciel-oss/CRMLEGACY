@@ -56,6 +56,7 @@ export interface Profile {
   daily_goals: DailyGoals
   extra_goals: ExtraGoal[]
   followup_goals: FollowupGoals
+  notify_lead_minutes: number
   created_at: string
 }
 
@@ -131,6 +132,7 @@ export interface Appointment {
   policy_delivered: boolean | null
   fechamento_agendado: boolean
   linked_appointment_id: string | null
+  reminder_sent: boolean
   created_at: string
   updated_at: string
 }

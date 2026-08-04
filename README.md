@@ -45,6 +45,31 @@ Functions) + PWA.
 Sem o `.env` preenchido, o app roda normalmente (útil para revisar telas/layout) mas mostra um aviso de "backend
 não conectado" na tela de login e nenhuma consulta ao banco funciona.
 
+## Notificações push (alertas de agendamento no celular)
+
+Cada consultor pode ativar, na tela Lembretes, um alerta que dispara no celular/navegador X minutos antes de cada
+agendamento (ele escolhe quanto). Isso usa Web Push, então precisa de uma chave VAPID própria e de uma Edge
+Function rodando de tempos em tempos:
+
+1. Gere um par de chaves VAPID (só precisa fazer isso uma vez):
+   ```
+   npx web-push generate-vapid-keys
+   ```
+2. Adicione a chave pública ao `.env` (e nas variáveis de ambiente do Vercel):
+   ```
+   VITE_VAPID_PUBLIC_KEY=a-chave-publica-gerada
+   ```
+3. Configure os segredos da Edge Function (Project Settings → Edge Functions → Secrets, ou `supabase secrets set`):
+   `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (ex: `mailto:voce@exemplo.com`) e `CRON_SECRET` (uma
+   string aleatória qualquer, só pra travar quem pode chamar a função).
+4. Deploy da função:
+   ```
+   supabase functions deploy send-appointment-reminders
+   ```
+5. Agende a execução: Database → Cron Jobs no painel do Supabase → novo job do tipo "HTTP Request", método POST,
+   apontando para a URL da função, cabeçalho `x-cron-secret` com o mesmo valor do passo 3, rodando a cada minuto
+   (`* * * * *`).
+
 ## Rodando localmente
 
 ```bash
@@ -71,6 +96,9 @@ npm run preview
 - `src/pages/` — Dashboard, Equipe, Minha remuneração, Lembretes, Login, aceitar convite.
 - `supabase/migrations/` — schema + políticas de RLS.
 - `supabase/functions/invite-consultor/` — Edge Function que o líder usa para convidar consultores.
+- `supabase/functions/send-appointment-reminders/` — Edge Function (rodada por um Cron Job) que dispara as
+  notificações push de agendamento.
+- `src/sw.ts` — service worker customizado (recebe as notificações push e abre o app ao clicar nelas).
 
 ## Referência de design
 
