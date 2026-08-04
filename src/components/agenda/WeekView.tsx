@@ -1,7 +1,16 @@
 import { useState } from 'react'
 import { useCrm } from '../../context/CrmContext'
 import { dstr, WEEKDAYS } from '../../lib/format'
-import { AGENDA_END_HOUR, AGENDA_EXTENDED_END_HOUR, agendaSlots, apptColor, apptSpan, minutesToTime, timeToMinutes } from '../../lib/domain'
+import {
+  AGENDA_END_HOUR,
+  AGENDA_EXTENDED_END_HOUR,
+  HOT_LEAD_DRAG_TYPE,
+  agendaSlots,
+  apptColor,
+  apptSpan,
+  minutesToTime,
+  timeToMinutes,
+} from '../../lib/domain'
 import type { Appointment, Profile } from '../../lib/types'
 
 function mondayOf(d: Date) {
@@ -18,6 +27,7 @@ export function WeekView({
   onSlotClick,
   onConflict,
   onOpenSlotChooser,
+  onScheduleLead,
 }: {
   appointments: Appointment[]
   consultants: Profile[]
@@ -26,6 +36,7 @@ export function WeekView({
   onSlotClick: (date: string, time: string) => void
   onConflict: (appt: Appointment) => void
   onOpenSlotChooser: (ids: string[]) => void
+  onScheduleLead?: (name: string, date: string, time: string) => void
 }) {
   const { updateAppointment } = useCrm()
   const [anchor, setAnchor] = useState(() => new Date())
@@ -56,6 +67,11 @@ export function WeekView({
   function handleDrop(e: React.DragEvent, date: string, time: string) {
     e.preventDefault()
     setDragOverKey(null)
+    const leadName = e.dataTransfer.getData(HOT_LEAD_DRAG_TYPE)
+    if (leadName && onScheduleLead) {
+      onScheduleLead(leadName, date, time)
+      return
+    }
     const apptId = e.dataTransfer.getData('text/plain')
     if (apptId) updateAppointment(apptId, { date, time })
   }

@@ -24,6 +24,9 @@ export const AGENDA_END_HOUR = 18
 export const AGENDA_EXTENDED_END_HOUR = 20
 export const AGENDA_SLOT_MINUTES = 30
 
+/** Custom drag-data MIME type for dragging a Lista HOT lead onto an agenda slot. */
+export const HOT_LEAD_DRAG_TYPE = 'application/x-legacy-hotlead'
+
 export function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number)
   return h * 60 + (m || 0)

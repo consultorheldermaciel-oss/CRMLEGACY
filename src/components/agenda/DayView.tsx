@@ -4,6 +4,7 @@ import { dstr, MONTHS } from '../../lib/format'
 import {
   AGENDA_END_HOUR,
   AGENDA_EXTENDED_END_HOUR,
+  HOT_LEAD_DRAG_TYPE,
   agendaSlots,
   apptColor,
   apptSpan,
@@ -23,6 +24,7 @@ export function DayView({
   onOpenAppt,
   onEmptySlotClick,
   onConflict,
+  onScheduleLead,
 }: {
   appointments: Appointment[]
   consultants: Profile[]
@@ -32,6 +34,7 @@ export function DayView({
   onOpenAppt: (id: string) => void
   onEmptySlotClick: (consultantId: string, date: string, time: string) => void
   onConflict: (appt: Appointment) => void
+  onScheduleLead?: (name: string, date: string, time: string) => void
 }) {
   const { updateAppointment } = useCrm()
   const [cursor, setCursor] = useState(() => new Date())
@@ -55,6 +58,11 @@ export function DayView({
   function handleDrop(e: React.DragEvent, time: string) {
     e.preventDefault()
     setDragOverKey(null)
+    const leadName = e.dataTransfer.getData(HOT_LEAD_DRAG_TYPE)
+    if (leadName && onScheduleLead) {
+      onScheduleLead(leadName, ds, time)
+      return
+    }
     const apptId = e.dataTransfer.getData('text/plain')
     if (apptId) updateAppointment(apptId, { date: ds, time })
   }

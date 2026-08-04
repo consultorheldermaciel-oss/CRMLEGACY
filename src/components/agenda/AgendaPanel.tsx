@@ -39,6 +39,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
 
   const [selectedApptId, setSelectedApptId] = useState<string | null>(null)
   const [newApptSlot, setNewApptSlot] = useState<NewApptSlot | null>(null)
+  const [dragPrefillName, setDragPrefillName] = useState<string | null>(null)
   const [conflictAppt, setConflictAppt] = useState<Appointment | null>(null)
   const [pickerDate, setPickerDate] = useState<string | null>(null)
   const [slotChooserApptIds, setSlotChooserApptIds] = useState<string[] | null>(null)
@@ -57,6 +58,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
   const scoped = apptTypeFilter === 'todos' ? byRole : byRole.filter((a) => a.type === apptTypeFilter)
 
   function openNewApptModal(consultantIds: string[], date: string, time: string) {
+    setDragPrefillName(null)
     setNewApptSlot({ consultantIds, date, time })
   }
 
@@ -66,6 +68,11 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
     } else {
       openNewApptModal([consultantId], date, time)
     }
+  }
+
+  function handleScheduleLead(name: string, date: string, time: string) {
+    setDragPrefillName(name)
+    setNewApptSlot({ consultantIds: [viewingId], date, time })
   }
 
   const selectedAppt = selectedApptId ? appointments.find((a) => a.id === selectedApptId) ?? null : null
@@ -126,6 +133,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
           onSlotClick={(date, time) => openNewApptModal([viewingId], date, time)}
           onConflict={setConflictAppt}
           onOpenSlotChooser={setSlotChooserApptIds}
+          onScheduleLead={!isGestorView ? handleScheduleLead : undefined}
         />
       )}
       {period === 'dia' && (
@@ -138,6 +146,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
           onOpenAppt={setSelectedApptId}
           onEmptySlotClick={onEmptySlotClick}
           onConflict={setConflictAppt}
+          onScheduleLead={!isGestorView ? handleScheduleLead : undefined}
         />
       )}
       {period === 'ano' && <YearView appointments={scoped} />}
@@ -148,8 +157,11 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
         <NewAppointmentModal
           slot={newApptSlot}
           isGestorAggregate={isGestorView}
-          prefillClientName={prefillClientName}
-          onClose={() => setNewApptSlot(null)}
+          prefillClientName={dragPrefillName ?? prefillClientName}
+          onClose={() => {
+            setNewApptSlot(null)
+            setDragPrefillName(null)
+          }}
         />
       )}
 

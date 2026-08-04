@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { toTitleCase } from '../lib/format'
+import { HOT_LEAD_DRAG_TYPE } from '../lib/domain'
 import { downloadCsv } from '../lib/report'
 import { parseHotListFile } from '../lib/hotListImport'
 import { hotLeadStatus } from '../lib/hotListStatus'
@@ -32,6 +33,7 @@ export function HotListPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [period, setPeriod] = useState<Period>('dia')
   const [schedulingLead, setSchedulingLead] = useState<HotLead | null>(null)
+  const [expandedLead, setExpandedLead] = useState<HotLead | null>(null)
 
   if (!profile) return null
   const targetConsultant = consultants.find((c) => c.id === viewingId)
@@ -135,6 +137,7 @@ export function HotListPage() {
                 lead={lead}
                 appointments={scopedAppointments}
                 onSchedule={() => setSchedulingLead(lead)}
+                onExpand={() => setExpandedLead(lead)}
                 onRemove={() => {
                   if (confirm(`Remover ${lead.name} da lista HOT?`)) removeHotLead(lead.id)
                 }}
@@ -169,6 +172,24 @@ export function HotListPage() {
       {addOpen && canManage && <NewHotLeadModal consultantId={viewingId} onClose={() => setAddOpen(false)} />}
 
       {schedulingLead && <HotLeadSchedulerModal lead={schedulingLead} onClose={() => setSchedulingLead(null)} />}
+
+      {expandedLead && (
+        <HotLeadDetailModal
+          lead={expandedLead}
+          appointments={scopedAppointments}
+          onSchedule={() => {
+            setExpandedLead(null)
+            setSchedulingLead(expandedLead)
+          }}
+          onRemove={() => {
+            if (confirm(`Remover ${expandedLead.name} da lista HOT?`)) {
+              removeHotLead(expandedLead.id)
+              setExpandedLead(null)
+            }
+          }}
+          onClose={() => setExpandedLead(null)}
+        />
+      )}
     </div>
   )
 }
@@ -203,16 +224,24 @@ function HotLeadRow({
   lead,
   appointments,
   onSchedule,
+  onExpand,
   onRemove,
 }: {
   lead: HotLead
   appointments: Appointment[]
   onSchedule: () => void
+  onExpand: () => void
   onRemove: () => void
 }) {
   const status = hotLeadStatus(lead.name, lead.consultant_id, appointments)
   return (
-    <div className="bg-card border border-border rounded-2xl p-4">
+    <div
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData(HOT_LEAD_DRAG_TYPE, lead.name)}
+      onClick={onExpand}
+      className="bg-card border border-border rounded-2xl p-4 cursor-pointer active:cursor-grabbing hover:border-[#0B2D5B]"
+      title="Clique pra ver detalhes · arraste até um horário na agenda pra agendar"
+    >
       <div className="flex items-start justify-between gap-2.5 flex-wrap mb-2">
         <div>
           <div className="text-[14px] font-semibold">{lead.name}</div>
@@ -222,7 +251,14 @@ function HotLeadRow({
               .join(' · ')}
           </div>
         </div>
-        <button type="button" onClick={onRemove} className="bg-transparent border-none text-[15px] p-1">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove()
+          }}
+          className="bg-transparent border-none text-[15px] p-1"
+        >
           🗑️
         </button>
       </div>
@@ -236,13 +272,75 @@ function HotLeadRow({
         </span>
         <button
           type="button"
-          onClick={onSchedule}
+          onClick={(e) => {
+            e.stopPropagation()
+            onSchedule()
+          }}
           className="bg-navy text-white border-none rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap"
         >
           📅 Agendar
         </button>
       </div>
     </div>
+  )
+}
+
+function HotLeadDetailModal({
+  lead,
+  appointments,
+  onSchedule,
+  onRemove,
+  onClose,
+}: {
+  lead: HotLead
+  appointments: Appointment[]
+  onSchedule: () => void
+  onRemove: () => void
+  onClose: () => void
+}) {
+  const status = hotLeadStatus(lead.name, lead.consultant_id, appointments)
+  return (
+    <Modal onClose={onClose} align="center" maxWidth={460}>
+      <ModalHeader title="Detalhes do contato" onClose={onClose} />
+      <div className="text-2xl font-heading font-bold mb-2.5">{lead.name}</div>
+      <span
+        className="inline-block text-[12px] font-bold px-3 py-1.5 rounded-full mb-4"
+        style={{ background: status.bg, color: status.color }}
+      >
+        {status.icon} {status.label}
+      </span>
+
+      {lead.phone && (
+        <a href={`tel:${lead.phone.replace(/\D/g, '')}`} className="block text-xl font-bold text-[#0B2D5B] mb-3.5">
+          📞 {lead.phone}
+        </a>
+      )}
+
+      <div className="text-[14px] font-semibold mb-3.5">
+        {lead.source === 'recomendacao' ? `🗣️ Indicação de ${lead.recommended_by ?? '—'}` : '🛒 Mercado próprio'}
+      </div>
+
+      {lead.notes && (
+        <div className="bg-bg rounded-xl p-3.5 text-[14px] leading-relaxed mb-4">{lead.notes}</div>
+      )}
+
+      <div className="flex gap-2.5">
+        <button
+          type="button"
+          onClick={onRemove}
+          className="bg-[#FBE7E7] text-[#B23030] border-none rounded-lg px-3.5 py-3 text-[13px] font-bold"
+        >
+          🗑️ Remover
+        </button>
+        <button
+          type="button"
+          onClick={onSchedule}
+          className="flex-1 bg-navy text-white border-none rounded-lg py-3 text-[14px] font-bold"
+        >
+          📅 Agendar
+        </button>
+      </div>
+    </Modal>
   )
 }
 
