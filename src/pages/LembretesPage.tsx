@@ -84,6 +84,11 @@ export function LembretesPage() {
                   <span className="text-[11.5px] text-text-faint">
                     prazo: {dateLabel(t.deadline)} · para {consultant?.name.split(' ')[0]}
                   </span>
+                  {t.auto_kind && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EAF0FA] text-[#0B2D5B]">
+                      🤖 automático
+                    </span>
+                  )}
                 </div>
               </div>
             )

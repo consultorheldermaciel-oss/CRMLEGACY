@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase, functionErrorMessage } from '../lib/supabase'
 import { useAuth } from './AuthContext'
+import { computeAutoCutucaoCandidates } from '../lib/autoCutucao'
 import type { Appointment, Client, Dependent, HotLead, Policy, Profile, Reminder, Task } from '../lib/types'
 
 interface CrmState {
@@ -131,6 +132,24 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user.id, profile?.id])
+
+  // Whenever a policy misses its entrega/recalibrar deadline, auto-insert a
+  // Cutucão task assigned by the consultor's líder — so it shows up in
+  // Lembretes without anyone having to create it by hand. The unique index
+  // on (auto_policy_id, auto_kind) keeps this idempotent across sessions.
+  useEffect(() => {
+    if (!session || loading) return
+    const candidates = computeAutoCutucaoCandidates(policies, consultants, tasks, new Date())
+    candidates.forEach((c) => {
+      supabase
+        .from('tasks')
+        .insert(c)
+        .then(({ error }) => {
+          if (error && error.code !== '23505') console.error(error) // eslint-disable-line no-console
+        })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, loading, policies, consultants, tasks])
 
   async function createAppointment(
     payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by'>,

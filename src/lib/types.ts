@@ -142,6 +142,8 @@ export interface Task {
   text: string
   deadline: string
   done: boolean
+  auto_kind: 'entrega' | 'recalibrar' | null
+  auto_policy_id: string | null
   created_at: string
 }
 
