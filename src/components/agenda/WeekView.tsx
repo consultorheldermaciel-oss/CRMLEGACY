@@ -74,7 +74,7 @@ export function WeekView({
       <div className="overflow-x-auto">
         <div
           className="grid gap-px bg-border border border-border rounded-[10px] overflow-hidden"
-          style={{ gridTemplateColumns: '56px repeat(7,minmax(140px,1fr))', minWidth: 1036 }}
+          style={{ gridTemplateColumns: '56px repeat(7,minmax(108px,1fr))', minWidth: 812 }}
         >
           <div className="bg-[#FAFAF8]" />
           {headers.map((h) => (

@@ -127,8 +127,8 @@ export function HotListPage() {
       )}
 
       {canManage && (
-        <div className="flex flex-col gap-4">
-          <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))' }}>
+        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4 items-start">
+          <div className="flex flex-col gap-2.5">
             {scopedLeads.map((lead) => (
               <HotLeadRow
                 key={lead.id}
