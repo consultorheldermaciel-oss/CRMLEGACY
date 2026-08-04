@@ -7,12 +7,11 @@ import { AGENDA_START_HOUR } from '../lib/domain'
 import { downloadCsv } from '../lib/report'
 import { parseHotListFile } from '../lib/hotListImport'
 import { hotLeadStatus } from '../lib/hotListStatus'
+import type { Period } from '../lib/kpi'
 import type { Appointment, HotLead, HotLeadSource } from '../lib/types'
 import { Modal, ModalHeader } from '../components/ui/Modal'
-import { DayView } from '../components/agenda/DayView'
+import { AgendaPanel } from '../components/agenda/AgendaPanel'
 import { NewAppointmentModal } from '../components/modals/NewAppointmentModal'
-import { ClientCardModal } from '../components/modals/ClientCardModal'
-import { ConflictAlertModal } from '../components/modals/ConflictAlertModal'
 
 const TEMPLATE_CSV =
   'Nome;Telefone;Fonte;Recomendado por;Outras características\r\n' +
@@ -24,6 +23,12 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+const PERIODS: [Period, string][] = [
+  ['dia', 'Dia'],
+  ['semana', 'Semana'],
+  ['mes', 'Mês'],
+]
+
 export function HotListPage() {
   const { profile } = useAuth()
   const { consultants, hotLeads, appointments, createHotLeadsBulk, removeHotLead } = useCrm()
@@ -32,18 +37,16 @@ export function HotListPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [period, setPeriod] = useState<Period>('dia')
   const [newApptSlot, setNewApptSlot] = useState<{ consultantIds: string[]; date: string; time: string; prefillClientName?: string } | null>(
     null,
   )
-  const [selectedApptId, setSelectedApptId] = useState<string | null>(null)
-  const [conflictAppt, setConflictAppt] = useState<Appointment | null>(null)
 
   if (!profile) return null
   const targetConsultant = consultants.find((c) => c.id === viewingId)
   const canManage = viewingId !== 'gestor' && (targetConsultant ? targetConsultant.role === 'consultor' : true)
   const scopedLeads = hotLeads.filter((l) => l.consultant_id === viewingId)
   const scopedAppointments = appointments.filter((a) => a.consultant_id === viewingId)
-  const selectedAppt = selectedApptId ? appointments.find((a) => a.id === selectedApptId) ?? null : null
 
   async function handleFile(file: File) {
     setUploading(true)
@@ -160,17 +163,21 @@ export function HotListPage() {
             )}
           </div>
 
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <DayView
-              appointments={scopedAppointments}
-              consultants={consultants}
-              isGestorView={false}
-              viewingId={viewingId}
-              apptTypeFilter="todos"
-              onOpenAppt={setSelectedApptId}
-              onEmptySlotClick={(consultantId, date, time) => setNewApptSlot({ consultantIds: [consultantId], date, time })}
-              onConflict={setConflictAppt}
-            />
+          <div>
+            <div className="flex gap-1.5 bg-card border border-border p-1 rounded-[9px] mb-2.5 self-start w-fit">
+              {PERIODS.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setPeriod(key)}
+                  className="rounded-md px-3.5 py-1.5 text-[12.5px] font-semibold"
+                  style={{ background: period === key ? '#0B2D5B' : 'transparent', color: period === key ? '#fff' : '#1A1D23' }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <AgendaPanel period={period} />
           </div>
         </div>
       )}
@@ -185,10 +192,6 @@ export function HotListPage() {
           onClose={() => setNewApptSlot(null)}
         />
       )}
-
-      {selectedAppt && <ClientCardModal appt={selectedAppt} onClose={() => setSelectedApptId(null)} />}
-
-      {conflictAppt && <ConflictAlertModal appt={conflictAppt} onClose={() => setConflictAppt(null)} />}
     </div>
   )
 }
