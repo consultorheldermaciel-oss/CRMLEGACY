@@ -39,6 +39,7 @@ export function CarteiraPage() {
   const [activeTab, setActiveTab] = useState<CarteiraTab>('carteira')
   const [newClientOpen, setNewClientOpen] = useState(false)
   const [retornoFor, setRetornoFor] = useState<{ consultantId: string; name: string } | null>(null)
+  const [search, setSearch] = useState('')
 
   if (!profile) return null
   const { isGestorView, memberIds } = resolveViewScope(consultants, viewingId)
@@ -73,6 +74,13 @@ export function CarteiraPage() {
   function openRetorno(consultantId: string, name: string) {
     setRetornoFor({ consultantId, name })
   }
+
+  const searchNorm = search.trim().toLowerCase()
+  const matchesSearch = (name: string) => !searchNorm || name.toLowerCase().includes(searchNorm)
+  const filteredDelay = delay.filter((i) => matchesSearch(i.name))
+  const filteredNaoConcluido = naoConcluido.filter((i) => matchesSearch(i.name))
+  const filteredScopedClients = scopedClients.filter((c) => matchesSearch(c.name))
+  const filteredVirtualCarteira = virtualCarteira.filter((v) => matchesSearch(v.name))
 
   function renderClientCard(client: Client) {
     const clientPolicies = policies.filter((p) => p.client_id === client.id)
@@ -117,9 +125,9 @@ export function CarteiraPage() {
   }
 
   const TABS: [CarteiraTab, string, number, string, string][] = [
-    ['delay', '🔁 Delays', delay.length, '#B23030', '#FBE7E7'],
-    ['naoConcluido', '⏳ Realizadas, sem venda', naoConcluido.length, '#9C6B0A', '#FCEFD9'],
-    ['carteira', '👥 Carteira Cliente', scopedClients.length + virtualCarteira.length, '#1E7A46', '#E4F5EA'],
+    ['delay', '🔁 Delays', filteredDelay.length, '#B23030', '#FBE7E7'],
+    ['naoConcluido', '⏳ Realizadas, sem venda', filteredNaoConcluido.length, '#9C6B0A', '#FCEFD9'],
+    ['carteira', '👥 Carteira Cliente', filteredScopedClients.length + filteredVirtualCarteira.length, '#1E7A46', '#E4F5EA'],
   ]
 
   return (
@@ -142,6 +150,16 @@ export function CarteiraPage() {
           Selecione um consultor específico no cabeçalho pra ver e cadastrar clientes dele.
         </div>
       )}
+
+      <div className="relative">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-faint text-[13px]">🔎</span>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Procurar cliente pelo nome…"
+          className="w-full border border-[#D8D5CD] rounded-lg pl-9 pr-3.5 py-2.5 text-[13px]"
+        />
+      </div>
 
       <div className="flex gap-2.5 flex-wrap">
         {TABS.map(([key, label, count, color, tint]) => {
@@ -175,7 +193,7 @@ export function CarteiraPage() {
       {activeTab === 'delay' && (
         <FollowupSection
           hint="Agendou mas o cliente não apareceu — abordagem agendada, mas não realizada. Vale a pena retomar contato."
-          items={delay}
+          items={filteredDelay}
           bucket="delay"
           consultants={consultants}
           isGestorView={isGestorView}
@@ -187,7 +205,7 @@ export function CarteiraPage() {
       {activeTab === 'naoConcluido' && (
         <FollowupSection
           hint="A reunião aconteceu, mas ainda não fechou venda. Não deixa esfriar."
-          items={naoConcluido}
+          items={filteredNaoConcluido}
           bucket="naoProtocolado"
           consultants={consultants}
           isGestorView={isGestorView}
@@ -198,8 +216,8 @@ export function CarteiraPage() {
 
       {activeTab === 'carteira' && (
         <div className="flex flex-col gap-2.5">
-          {scopedClients.map(renderClientCard)}
-          {virtualCarteira.map((v) => (
+          {filteredScopedClients.map(renderClientCard)}
+          {filteredVirtualCarteira.map((v) => (
             <VirtualClientRow
               key={clientKey(v.consultantId, v.name)}
               virtualClient={v}
@@ -208,8 +226,10 @@ export function CarteiraPage() {
               consultants={consultants}
             />
           ))}
-          {scopedClients.length === 0 && virtualCarteira.length === 0 && (
-            <div className="text-[12.5px] text-text-faint">Nenhum cliente na carteira ainda.</div>
+          {filteredScopedClients.length === 0 && filteredVirtualCarteira.length === 0 && (
+            <div className="text-[12.5px] text-text-faint">
+              {searchNorm ? 'Nenhum cliente encontrado com esse nome.' : 'Nenhum cliente na carteira ainda.'}
+            </div>
           )}
         </div>
       )}
