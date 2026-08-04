@@ -59,7 +59,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(appt.client_name)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [recPopup, setRecPopup] = useState<{ then?: () => void } | null>(null)
+  const [recPopup, setRecPopup] = useState<{ then?: () => void; celebrate?: boolean } | null>(null)
 
   const consultant = consultants.find((c) => c.id === appt.consultant_id)
   const sc = statusColors(appt.status)
@@ -204,6 +204,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
     if (!createdPolicy) {
       setActionError('O cliente foi colocado na Carteira, mas a apólice não foi salva automaticamente. Adicione a apólice manualmente lá.')
     }
+    setRecPopup({ celebrate: true })
   }
 
   async function saveAnamnese() {
@@ -667,6 +668,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       {recPopup && (
         <RecommendationsPromptModal
           appt={appt}
+          celebrate={recPopup.celebrate ?? false}
           onClose={() => {
             const then = recPopup.then
             setRecPopup(null)
@@ -678,7 +680,15 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   )
 }
 
-function RecommendationsPromptModal({ appt, onClose }: { appt: Appointment; onClose: () => void }) {
+function RecommendationsPromptModal({
+  appt,
+  celebrate,
+  onClose,
+}: {
+  appt: Appointment
+  celebrate: boolean
+  onClose: () => void
+}) {
   const { updateAppointment } = useCrm()
   const [count, setCount] = useState(appt.recommendations)
   const [saving, setSaving] = useState(false)
@@ -691,24 +701,41 @@ function RecommendationsPromptModal({ appt, onClose }: { appt: Appointment; onCl
   }
 
   return (
-    <Modal onClose={onClose} align="center" maxWidth={340}>
-      <div className="font-heading font-bold text-[15px] mb-1">🎗️ Indicações conseguidas</div>
-      <div className="text-[12.5px] text-text-muted mb-4">
-        Quantas indicações {appt.client_name} te deu nesse encontro?
+    <Modal onClose={onClose} align="center" maxWidth={380}>
+      <div
+        className="-m-6 mb-5 rounded-t-2xl px-6 py-6 text-center"
+        style={{ background: 'linear-gradient(135deg,#C9A227,#9C6B0A)' }}
+      >
+        <div className="text-[40px] leading-none mb-1.5">🎗️</div>
+        <div className="font-heading font-extrabold text-[19px] text-white leading-tight">
+          {celebrate ? 'Apólice fechada! Hora de pedir indicação 🎉' : 'Pediu indicação pra esse cliente?'}
+        </div>
+        <div className="text-[12.5px] text-white/85 mt-1">
+          {celebrate
+            ? `${appt.client_name} está satisfeito — esse é o melhor momento pra pedir contatos.`
+            : `Todo encontro com ${appt.client_name} é uma chance de indicação.`}
+        </div>
       </div>
-      <div className="flex items-center justify-center gap-4 mb-5">
+
+      <div className="text-center text-[13px] font-semibold text-text-muted mb-3">
+        Quantas indicações {appt.client_name} te deu?
+      </div>
+      <div className="flex items-center justify-center gap-5 mb-6">
         <button
           type="button"
           onClick={() => setCount((c) => Math.max(0, c - 1))}
-          className="w-10 h-10 rounded-full border border-[#D8D5CD] bg-white text-lg font-bold"
+          className="w-12 h-12 rounded-full border-2 border-[#D8D5CD] bg-white text-xl font-bold"
         >
           −
         </button>
-        <span className="text-2xl font-bold w-10 text-center">{count}</span>
+        <span className="text-4xl font-extrabold w-14 text-center" style={{ color: '#9C6B0A' }}>
+          {count}
+        </span>
         <button
           type="button"
           onClick={() => setCount((c) => c + 1)}
-          className="w-10 h-10 rounded-full border border-[#D8D5CD] bg-white text-lg font-bold"
+          className="w-12 h-12 rounded-full border-2 border-[#C9A227] bg-[#FCEFD9] text-xl font-bold"
+          style={{ color: '#9C6B0A' }}
         >
           +
         </button>
@@ -717,7 +744,7 @@ function RecommendationsPromptModal({ appt, onClose }: { appt: Appointment; onCl
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 bg-transparent border border-[#D8D5CD] rounded-lg py-2.5 text-[13px] font-semibold text-text-muted"
+          className="flex-1 bg-transparent border border-[#D8D5CD] rounded-lg py-3 text-[13px] font-semibold text-text-muted"
         >
           Pular
         </button>
@@ -725,7 +752,8 @@ function RecommendationsPromptModal({ appt, onClose }: { appt: Appointment; onCl
           type="button"
           disabled={saving}
           onClick={confirm}
-          className="flex-1 bg-navy text-white border-none rounded-lg py-2.5 text-[13px] font-bold disabled:opacity-60"
+          className="flex-1 border-none rounded-lg py-3 text-[13.5px] font-extrabold text-white disabled:opacity-60"
+          style={{ background: '#9C6B0A' }}
         >
           {saving ? 'Salvando…' : 'Confirmar'}
         </button>
