@@ -32,12 +32,12 @@ export function WeekView({
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
   const [extended, setExtended] = useState(false)
   const monday = mondayOf(anchor)
-  const days = [0, 1, 2, 3, 4].map((i) => {
+  const days = [0, 1, 2, 3, 4, 5, 6].map((i) => {
     const dt = new Date(monday)
     dt.setDate(monday.getDate() + i)
     return dstr(dt.getFullYear(), dt.getMonth(), dt.getDate())
   })
-  const headers = [0, 1, 2, 3, 4].map((i) => {
+  const headers = [0, 1, 2, 3, 4, 5, 6].map((i) => {
     const dt = new Date(monday)
     dt.setDate(monday.getDate() + i)
     return `${WEEKDAYS[dt.getDay()]} ${dt.getDate()}`
@@ -74,7 +74,7 @@ export function WeekView({
       <div className="overflow-x-auto">
         <div
           className="grid gap-px bg-border border border-border rounded-[10px] overflow-hidden"
-          style={{ gridTemplateColumns: '56px repeat(5,minmax(140px,1fr))', minWidth: 760 }}
+          style={{ gridTemplateColumns: '56px repeat(7,minmax(140px,1fr))', minWidth: 1036 }}
         >
           <div className="bg-[#FAFAF8]" />
           {headers.map((h) => (
