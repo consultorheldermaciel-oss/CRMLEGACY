@@ -65,7 +65,8 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
               <th className="text-left py-2 pr-2 font-bold">Consultor</th>
               <th className="text-right py-2 px-2 font-bold">Abordagens</th>
               <th className="text-right py-2 px-2 font-bold">Fechamentos</th>
-              <th className="text-right py-2 px-2 font-bold">Recomendações</th>
+              <th className="text-right py-2 px-2 font-bold">Recomendações (abordagem)</th>
+              <th className="text-right py-2 px-2 font-bold">Recomendações (fechamento)</th>
               <th className="text-right py-2 px-2 font-bold">Apólices fechadas</th>
               <th className="text-right py-2 px-2 font-bold">Valor das apólices</th>
               <th className="text-right py-2 pl-2 font-bold">Capital segurado</th>
@@ -77,7 +78,8 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
                 <td className="py-2 pr-2 font-semibold">{r.consultantName}</td>
                 <td className="text-right py-2 px-2">{r.abordagens}</td>
                 <td className="text-right py-2 px-2">{r.fechamentos}</td>
-                <td className="text-right py-2 px-2">{r.recomendacoes}</td>
+                <td className="text-right py-2 px-2">{r.recomendacoesAbordagem}</td>
+                <td className="text-right py-2 px-2">{r.recomendacoesFechamento}</td>
                 <td className="text-right py-2 px-2">{r.apolicesFechadas}</td>
                 <td className="text-right py-2 px-2">{fmtBRL(r.valorApolices)}</td>
                 <td className="text-right py-2 pl-2">{fmtBRL(r.capitalSegurado)}</td>
@@ -85,7 +87,7 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-3 text-center text-text-faint">
+                <td colSpan={8} className="py-3 text-center text-text-faint">
                   Nenhum consultor na equipe.
                 </td>
               </tr>
@@ -96,7 +98,8 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
               <td className="py-2 pr-2">EQUIPE (total)</td>
               <td className="text-right py-2 px-2">{totals.abordagens}</td>
               <td className="text-right py-2 px-2">{totals.fechamentos}</td>
-              <td className="text-right py-2 px-2">{totals.recomendacoes}</td>
+              <td className="text-right py-2 px-2">{totals.recomendacoesAbordagem}</td>
+              <td className="text-right py-2 px-2">{totals.recomendacoesFechamento}</td>
               <td className="text-right py-2 px-2">{totals.apolicesFechadas}</td>
               <td className="text-right py-2 px-2">{fmtBRL(totals.valorApolices)}</td>
               <td className="text-right py-2 pl-2">{fmtBRL(totals.capitalSegurado)}</td>
@@ -105,14 +108,15 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
               <td className="py-2 pr-2">Média por consultor</td>
               <td className="text-right py-2 px-2">{round1(averages.abordagens)}</td>
               <td className="text-right py-2 px-2">{round1(averages.fechamentos)}</td>
-              <td className="text-right py-2 px-2">{round1(averages.recomendacoes)}</td>
+              <td className="text-right py-2 px-2">{round1(averages.recomendacoesAbordagem)}</td>
+              <td className="text-right py-2 px-2">{round1(averages.recomendacoesFechamento)}</td>
               <td className="text-right py-2 px-2">{round1(averages.apolicesFechadas)}</td>
               <td className="text-right py-2 px-2">{fmtBRL(averages.valorApolices)}</td>
               <td className="text-right py-2 pl-2">{fmtBRL(averages.capitalSegurado)}</td>
             </tr>
             <tr>
               <td className="py-2 pr-2 font-semibold">Prêmio médio por apólice fechada</td>
-              <td colSpan={6} className="text-right py-2 px-2 font-semibold">
+              <td colSpan={7} className="text-right py-2 px-2 font-semibold">
                 {fmtBRL(totals.premioMedio)}
               </td>
             </tr>

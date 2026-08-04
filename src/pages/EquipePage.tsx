@@ -673,7 +673,7 @@ function ExtraGoalsEditor({ goals, onChange }: { goals: ExtraGoal[]; onChange: (
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Nova meta (ex: 5 indicações no mês)"
+          placeholder="Nova meta (ex: 5 recomendações no mês)"
           className="flex-1 border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[12.5px]"
         />
         <button

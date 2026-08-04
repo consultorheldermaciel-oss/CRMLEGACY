@@ -24,7 +24,8 @@ export interface WeeklyReportRow {
   consultantName: string
   abordagens: number
   fechamentos: number
-  recomendacoes: number
+  recomendacoesAbordagem: number
+  recomendacoesFechamento: number
   apolicesFechadas: number
   valorApolices: number
   capitalSegurado: number
@@ -33,7 +34,8 @@ export interface WeeklyReportRow {
 export interface WeeklyReportTotals {
   abordagens: number
   fechamentos: number
-  recomendacoes: number
+  recomendacoesAbordagem: number
+  recomendacoesFechamento: number
   apolicesFechadas: number
   valorApolices: number
   capitalSegurado: number
@@ -46,7 +48,8 @@ export interface WeeklyReportTotals {
 export interface WeeklyReportAverages {
   abordagens: number
   fechamentos: number
-  recomendacoes: number
+  recomendacoesAbordagem: number
+  recomendacoesFechamento: number
   apolicesFechadas: number
   valorApolices: number
   capitalSegurado: number
@@ -66,7 +69,8 @@ export function buildWeeklyReport(
       consultantName: c.name,
       abordagens: apps.filter((a) => a.type === 'abordagem').length,
       fechamentos: apps.filter((a) => a.type === 'fechamento').length,
-      recomendacoes: apps.reduce((s, a) => s + (a.recommendations || 0), 0),
+      recomendacoesAbordagem: apps.filter((a) => a.type === 'abordagem').reduce((s, a) => s + (a.recommendations || 0), 0),
+      recomendacoesFechamento: apps.filter((a) => a.type === 'fechamento').reduce((s, a) => s + (a.recommendations || 0), 0),
       apolicesFechadas: closed.length,
       valorApolices: closed.reduce((s, a) => s + (a.premium || 0), 0),
       capitalSegurado: closed.reduce((s, a) => s + (a.capital_segurado || 0), 0),
@@ -77,19 +81,29 @@ export function buildWeeklyReport(
     (acc, r) => ({
       abordagens: acc.abordagens + r.abordagens,
       fechamentos: acc.fechamentos + r.fechamentos,
-      recomendacoes: acc.recomendacoes + r.recomendacoes,
+      recomendacoesAbordagem: acc.recomendacoesAbordagem + r.recomendacoesAbordagem,
+      recomendacoesFechamento: acc.recomendacoesFechamento + r.recomendacoesFechamento,
       apolicesFechadas: acc.apolicesFechadas + r.apolicesFechadas,
       valorApolices: acc.valorApolices + r.valorApolices,
       capitalSegurado: acc.capitalSegurado + r.capitalSegurado,
     }),
-    { abordagens: 0, fechamentos: 0, recomendacoes: 0, apolicesFechadas: 0, valorApolices: 0, capitalSegurado: 0 },
+    {
+      abordagens: 0,
+      fechamentos: 0,
+      recomendacoesAbordagem: 0,
+      recomendacoesFechamento: 0,
+      apolicesFechadas: 0,
+      valorApolices: 0,
+      capitalSegurado: 0,
+    },
   )
 
   const headcount = team.length
   const averages: WeeklyReportAverages = {
     abordagens: headcount ? totals.abordagens / headcount : 0,
     fechamentos: headcount ? totals.fechamentos / headcount : 0,
-    recomendacoes: headcount ? totals.recomendacoes / headcount : 0,
+    recomendacoesAbordagem: headcount ? totals.recomendacoesAbordagem / headcount : 0,
+    recomendacoesFechamento: headcount ? totals.recomendacoesFechamento / headcount : 0,
     apolicesFechadas: headcount ? totals.apolicesFechadas / headcount : 0,
     valorApolices: headcount ? totals.valorApolices / headcount : 0,
     capitalSegurado: headcount ? totals.capitalSegurado / headcount : 0,
@@ -109,7 +123,8 @@ const CSV_HEADERS = [
   'Consultor',
   'Abordagens',
   'Fechamentos',
-  'Recomendações',
+  'Recomendações (abordagem)',
+  'Recomendações (fechamento)',
   'Apólices fechadas',
   'Valor das apólices (R$)',
   'Capital segurado (R$)',
@@ -139,18 +154,37 @@ export function weeklyReportCsv(
     '',
     CSV_HEADERS.map(csvCell).join(';'),
     ...rows.map((r) =>
-      [r.consultantName, r.abordagens, r.fechamentos, r.recomendacoes, r.apolicesFechadas, r.valorApolices, r.capitalSegurado]
+      [
+        r.consultantName,
+        r.abordagens,
+        r.fechamentos,
+        r.recomendacoesAbordagem,
+        r.recomendacoesFechamento,
+        r.apolicesFechadas,
+        r.valorApolices,
+        r.capitalSegurado,
+      ]
         .map(csvCell)
         .join(';'),
     ),
-    ['EQUIPE (total)', totals.abordagens, totals.fechamentos, totals.recomendacoes, totals.apolicesFechadas, totals.valorApolices, totals.capitalSegurado]
+    [
+      'EQUIPE (total)',
+      totals.abordagens,
+      totals.fechamentos,
+      totals.recomendacoesAbordagem,
+      totals.recomendacoesFechamento,
+      totals.apolicesFechadas,
+      totals.valorApolices,
+      totals.capitalSegurado,
+    ]
       .map(csvCell)
       .join(';'),
     [
       'Média por consultor',
       round1(averages.abordagens),
       round1(averages.fechamentos),
-      round1(averages.recomendacoes),
+      round1(averages.recomendacoesAbordagem),
+      round1(averages.recomendacoesFechamento),
       round1(averages.apolicesFechadas),
       Math.round(averages.valorApolices),
       Math.round(averages.capitalSegurado),

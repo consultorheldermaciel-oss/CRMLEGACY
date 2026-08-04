@@ -307,7 +307,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       </div>
 
       <div className="flex items-center gap-2 mb-4 no-print">
-        <span className="text-[12.5px] font-semibold text-text-muted">🎗️ Indicações conseguidas:</span>
+        <span className="text-[12.5px] font-semibold text-text-muted">🎗️ Recomendações conseguidas:</span>
         <button
           type="button"
           disabled={appt.recommendations <= 0}
@@ -708,17 +708,17 @@ function RecommendationsPromptModal({
       >
         <div className="text-[40px] leading-none mb-1.5">🎗️</div>
         <div className="font-heading font-extrabold text-[19px] text-white leading-tight">
-          {celebrate ? 'Apólice fechada! Hora de pedir indicação 🎉' : 'Pediu indicação pra esse cliente?'}
+          {celebrate ? 'Apólice fechada! Hora de pedir recomendação 🎉' : 'Pediu recomendação pra esse cliente?'}
         </div>
         <div className="text-[12.5px] text-white/85 mt-1">
           {celebrate
             ? `${appt.client_name} está satisfeito — esse é o melhor momento pra pedir contatos.`
-            : `Todo encontro com ${appt.client_name} é uma chance de indicação.`}
+            : `Todo encontro com ${appt.client_name} é uma chance de recomendação.`}
         </div>
       </div>
 
       <div className="text-center text-[13px] font-semibold text-text-muted mb-3">
-        Quantas indicações {appt.client_name} te deu?
+        Quantas recomendações {appt.client_name} te deu?
       </div>
       <div className="flex items-center justify-center gap-5 mb-6">
         <button
