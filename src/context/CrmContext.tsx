@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase, functionErrorMessage } from '../lib/supabase'
 import { useAuth } from './AuthContext'
-import type { Appointment, Client, Dependent, Policy, Profile, Reminder, Task } from '../lib/types'
+import type { Appointment, Client, Dependent, HotLead, Policy, Profile, Reminder, Task } from '../lib/types'
 
 interface CrmState {
   consultants: Profile[]
@@ -11,6 +11,7 @@ interface CrmState {
   dependents: Dependent[]
   clients: Client[]
   policies: Policy[]
+  hotLeads: HotLead[]
   dismissedReminderIds: Set<string>
   loading: boolean
   refresh: () => Promise<void>
@@ -60,6 +61,9 @@ interface CrmState {
     file: File,
   ) => Promise<{ error: string | null }>
   getPolicyDocumentUrl: (path: string) => Promise<string | null>
+  createHotLead: (payload: Omit<HotLead, 'id' | 'created_at'>) => Promise<HotLead | null>
+  createHotLeadsBulk: (payload: Omit<HotLead, 'id' | 'created_at'>[]) => Promise<{ error: string | null; count: number }>
+  removeHotLead: (id: string) => Promise<void>
 }
 
 const CrmContext = createContext<CrmState | undefined>(undefined)
@@ -73,13 +77,14 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   const [dependents, setDependents] = useState<Dependent[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [policies, setPolicies] = useState<Policy[]>([])
+  const [hotLeads, setHotLeads] = useState<HotLead[]>([])
   const [dismissedReminderIds, setDismissedReminderIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
   async function refresh() {
     if (!session) return
     setLoading(true)
-    const [c, a, t, r, d, dep, cli, pol] = await Promise.all([
+    const [c, a, t, r, d, dep, cli, pol, hot] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at'),
       supabase.from('appointments').select('*').order('date').order('time'),
       supabase.from('tasks').select('*').order('deadline'),
@@ -88,6 +93,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       supabase.from('dependents').select('*').order('created_at'),
       supabase.from('clients').select('*').order('name'),
       supabase.from('policies').select('*').order('created_at'),
+      supabase.from('hot_leads').select('*').order('created_at', { ascending: false }),
     ])
     setConsultants((c.data as Profile[]) ?? [])
     setAppointments((a.data as Appointment[]) ?? [])
@@ -97,6 +103,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     setDependents((dep.data as Dependent[]) ?? [])
     setClients((cli.data as Client[]) ?? [])
     setPolicies((pol.data as Policy[]) ?? [])
+    setHotLeads((hot.data as HotLead[]) ?? [])
     setLoading(false)
   }
 
@@ -116,6 +123,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dependents' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'policies' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hot_leads' }, () => refresh())
       .subscribe()
 
     return () => {
@@ -281,6 +289,33 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     await refresh()
   }
 
+  async function createHotLead(payload: Omit<HotLead, 'id' | 'created_at'>) {
+    const { data, error } = await supabase.from('hot_leads').insert(payload).select().single()
+    if (error) {
+      console.error(error) // eslint-disable-line no-console
+      return null
+    }
+    await refresh()
+    return data as HotLead
+  }
+
+  async function createHotLeadsBulk(payload: Omit<HotLead, 'id' | 'created_at'>[]) {
+    if (payload.length === 0) return { error: null, count: 0 }
+    const { error } = await supabase.from('hot_leads').insert(payload)
+    if (error) {
+      console.error(error) // eslint-disable-line no-console
+      return { error: error.message, count: 0 }
+    }
+    await refresh()
+    return { error: null, count: payload.length }
+  }
+
+  async function removeHotLead(id: string) {
+    const { error } = await supabase.from('hot_leads').delete().eq('id', id)
+    if (error) console.error(error) // eslint-disable-line no-console
+    await refresh()
+  }
+
   async function createPolicy(payload: Omit<Policy, 'id' | 'created_at'>) {
     const { data, error } = await supabase.from('policies').insert(payload).select().single()
     if (error) {
@@ -340,6 +375,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       dependents,
       clients,
       policies,
+      hotLeads,
       dismissedReminderIds,
       loading,
       refresh,
@@ -368,9 +404,12 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       removePolicy,
       uploadPolicyDocument,
       getPolicyDocumentUrl,
+      createHotLead,
+      createHotLeadsBulk,
+      removeHotLead,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [consultants, appointments, tasks, reminders, dependents, clients, policies, dismissedReminderIds, loading],
+    [consultants, appointments, tasks, reminders, dependents, clients, policies, hotLeads, dismissedReminderIds, loading],
   )
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>

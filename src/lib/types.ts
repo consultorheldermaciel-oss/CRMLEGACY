@@ -78,6 +78,19 @@ export interface Client {
   created_at: string
 }
 
+export type HotLeadSource = 'mercado' | 'recomendacao'
+
+export interface HotLead {
+  id: string
+  consultant_id: string
+  name: string
+  phone: string | null
+  source: HotLeadSource
+  recommended_by: string | null
+  notes: string | null
+  created_at: string
+}
+
 export type PolicyStatus = 'ativa' | 'entregue' | 'cancelada'
 
 export interface Policy {

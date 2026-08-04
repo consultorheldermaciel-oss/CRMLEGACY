@@ -6,6 +6,7 @@ import { EquipePage } from './EquipePage'
 import { RemuneracaoPage } from './RemuneracaoPage'
 import { LembretesPage } from './LembretesPage'
 import { CarteiraPage } from './CarteiraPage'
+import { HotListPage } from './HotListPage'
 
 export function AppShell() {
   const { screen } = useUi()
@@ -19,6 +20,7 @@ export function AppShell() {
         {screen === 'remuneracao' && <RemuneracaoPage />}
         {screen === 'lembretes' && <LembretesPage />}
         {screen === 'carteira' && <CarteiraPage />}
+        {screen === 'hotlist' && <HotListPage />}
       </main>
       <TaskModal />
     </div>

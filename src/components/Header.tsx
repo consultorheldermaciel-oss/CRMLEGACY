@@ -61,7 +61,11 @@ export function Header() {
         : `Visão: ${viewingConsultant?.name ?? ''}`
       : `Visão: ${profile.name}`
 
-  const navDefs: [Screen, string][] = [['dashboard', 'Página principal'], ['carteira', 'Carteira de Clientes']]
+  const navDefs: [Screen, string][] = [
+    ['dashboard', 'Página principal'],
+    ['carteira', 'Carteira de Clientes'],
+    ['hotlist', '🔥 Lista HOT'],
+  ]
   if (isGestor) navDefs.push(['equipe', 'Equipe'])
   else navDefs.push(['remuneracao', 'Minha remuneração'])
   navDefs.push(['lembretes', 'Lembretes'])

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 
-export type Screen = 'dashboard' | 'equipe' | 'remuneracao' | 'lembretes' | 'carteira'
+export type Screen = 'dashboard' | 'equipe' | 'remuneracao' | 'lembretes' | 'carteira' | 'hotlist'
 
 interface TaskModalState {
   open: boolean
