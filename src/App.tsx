@@ -4,6 +4,7 @@ import { CrmProvider } from './context/CrmContext'
 import { UiProvider } from './context/UiContext'
 import LoginPage from './pages/LoginPage'
 import AcceptInvitePage from './pages/AcceptInvitePage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import { AppShell } from './pages/AppShell'
 
 function ProtectedApp() {
@@ -41,6 +42,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/convite/:token" element={<AcceptInvitePage />} />
+          <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
           <Route path="/*" element={<ProtectedApp />} />
         </Routes>
       </AuthProvider>
