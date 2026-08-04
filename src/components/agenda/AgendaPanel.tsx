@@ -31,7 +31,7 @@ const FILTER_DEFS: [Appointment['type'] | 'todos', string][] = [
   ['outros', 'Outros'],
 ]
 
-export function AgendaPanel({ period }: { period: Period }) {
+export function AgendaPanel({ period, prefillClientName }: { period: Period; prefillClientName?: string }) {
   const { profile } = useAuth()
   const { consultants, appointments } = useCrm()
   const { viewingId, openTaskModal } = useUi()
@@ -148,6 +148,7 @@ export function AgendaPanel({ period }: { period: Period }) {
         <NewAppointmentModal
           slot={newApptSlot}
           isGestorAggregate={isGestorView}
+          prefillClientName={prefillClientName}
           onClose={() => setNewApptSlot(null)}
         />
       )}

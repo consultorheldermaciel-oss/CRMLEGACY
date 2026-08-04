@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { toTitleCase } from '../lib/format'
-import { AGENDA_START_HOUR } from '../lib/domain'
 import { downloadCsv } from '../lib/report'
 import { parseHotListFile } from '../lib/hotListImport'
 import { hotLeadStatus } from '../lib/hotListStatus'
@@ -11,17 +10,11 @@ import type { Period } from '../lib/kpi'
 import type { Appointment, HotLead, HotLeadSource } from '../lib/types'
 import { Modal, ModalHeader } from '../components/ui/Modal'
 import { AgendaPanel } from '../components/agenda/AgendaPanel'
-import { NewAppointmentModal } from '../components/modals/NewAppointmentModal'
 
 const TEMPLATE_CSV =
   'Nome;Telefone;Fonte;Recomendado por;Outras características\r\n' +
   'João da Silva;(11) 99999-0000;Mercado;;Trabalha no comércio, mencionou querer proteger a família\r\n' +
   'Maria Souza;(11) 98888-0000;Recomendação;João da Silva;Amiga da Maria, tem dois filhos pequenos\r\n'
-
-function todayStr() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 const PERIODS: [Period, string][] = [
   ['dia', 'Dia'],
@@ -38,9 +31,7 @@ export function HotListPage() {
   const [uploadMsg, setUploadMsg] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [period, setPeriod] = useState<Period>('dia')
-  const [newApptSlot, setNewApptSlot] = useState<{ consultantIds: string[]; date: string; time: string; prefillClientName?: string } | null>(
-    null,
-  )
+  const [schedulingLead, setSchedulingLead] = useState<HotLead | null>(null)
 
   if (!profile) return null
   const targetConsultant = consultants.find((c) => c.id === viewingId)
@@ -136,21 +127,14 @@ export function HotListPage() {
       )}
 
       {canManage && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))' }}>
             {scopedLeads.map((lead) => (
               <HotLeadRow
                 key={lead.id}
                 lead={lead}
                 appointments={scopedAppointments}
-                onSchedule={() =>
-                  setNewApptSlot({
-                    consultantIds: [viewingId],
-                    date: todayStr(),
-                    time: `${String(AGENDA_START_HOUR).padStart(2, '0')}:00`,
-                    prefillClientName: lead.name,
-                  })
-                }
+                onSchedule={() => setSchedulingLead(lead)}
                 onRemove={() => {
                   if (confirm(`Remover ${lead.name} da lista HOT?`)) removeHotLead(lead.id)
                 }}
@@ -184,15 +168,34 @@ export function HotListPage() {
 
       {addOpen && canManage && <NewHotLeadModal consultantId={viewingId} onClose={() => setAddOpen(false)} />}
 
-      {newApptSlot && (
-        <NewAppointmentModal
-          slot={newApptSlot}
-          isGestorAggregate={false}
-          prefillClientName={newApptSlot.prefillClientName}
-          onClose={() => setNewApptSlot(null)}
-        />
-      )}
+      {schedulingLead && <HotLeadSchedulerModal lead={schedulingLead} onClose={() => setSchedulingLead(null)} />}
     </div>
+  )
+}
+
+function HotLeadSchedulerModal({ lead, onClose }: { lead: HotLead; onClose: () => void }) {
+  const [period, setPeriod] = useState<Period>('semana')
+  return (
+    <Modal onClose={onClose} maxWidth={1180}>
+      <ModalHeader title={`Agendar com ${lead.name}`} onClose={onClose} />
+      <div className="flex gap-1.5 bg-bg p-1 rounded-lg mb-2.5 w-fit">
+        {PERIODS.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setPeriod(key)}
+            className="rounded-md px-3.5 py-1.5 text-[12.5px] font-semibold"
+            style={{ background: period === key ? '#0B2D5B' : 'transparent', color: period === key ? '#fff' : '#1A1D23' }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="text-[12px] text-text-faint mb-3">
+        Clique em um horário livre no calendário pra agendar com {lead.name}.
+      </div>
+      <AgendaPanel period={period} prefillClientName={lead.name} />
+    </Modal>
   )
 }
 
