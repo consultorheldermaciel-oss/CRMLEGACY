@@ -6,12 +6,17 @@ import { Modal } from '../ui/Modal'
 
 export function ConsultantPickerModal({
   date,
+  time,
   consultants,
   appointments,
   onClose,
   onConfirm,
 }: {
   date: string
+  /** Pre-chosen time (e.g. the exact slot clicked in Week view) — skips the
+   * free-slot search and uses it as-is. Omit to auto-pick the first slot
+   * where every selected consultant is free (e.g. Month view's day click). */
+  time?: string
   consultants: Profile[]
   appointments: Appointment[]
   onClose: () => void
@@ -26,6 +31,10 @@ export function ConsultantPickerModal({
 
   function confirm() {
     if (!selected.length) return
+    if (time) {
+      onConfirm(selected, date, time)
+      return
+    }
     let freeSlot = agendaSlots()[0]
     for (const m of agendaSlots()) {
       if (selected.every((id) => !isOccupied(appointments, id, date, m))) {

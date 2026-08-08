@@ -41,7 +41,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
   const [newApptSlot, setNewApptSlot] = useState<NewApptSlot | null>(null)
   const [dragPrefillName, setDragPrefillName] = useState<string | null>(null)
   const [conflictAppt, setConflictAppt] = useState<Appointment | null>(null)
-  const [pickerDate, setPickerDate] = useState<string | null>(null)
+  const [pickerSlot, setPickerSlot] = useState<{ date: string; time?: string } | null>(null)
   const [slotChooserApptIds, setSlotChooserApptIds] = useState<string[] | null>(null)
   const [slotChoiceSlot, setSlotChoiceSlot] = useState<{ consultantId: string; date: string; time: string } | null>(
     null,
@@ -118,7 +118,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
           consultants={monthConsultants}
           isGestorView={isGestorView}
           onOpenAppt={setSelectedApptId}
-          onDayClickGestor={(date) => setPickerDate(date)}
+          onDayClickGestor={(date) => setPickerSlot({ date })}
           onDayClickSelf={(date, time) => openNewApptModal([viewingId], date, time)}
           onOpenSlotChooser={setSlotChooserApptIds}
           onFullDay={setConflictAppt}
@@ -134,6 +134,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
           onConflict={setConflictAppt}
           onOpenSlotChooser={setSlotChooserApptIds}
           onScheduleLead={!isGestorView ? handleScheduleLead : undefined}
+          onEmptySlotClickGestor={isGestorView ? (date, time) => setPickerSlot({ date, time }) : undefined}
         />
       )}
       {period === 'dia' && (
@@ -169,14 +170,15 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
 
       {conflictAppt && <ConflictAlertModal appt={conflictAppt} onClose={() => setConflictAppt(null)} />}
 
-      {pickerDate && (
+      {pickerSlot && (
         <ConsultantPickerModal
-          date={pickerDate}
+          date={pickerSlot.date}
+          time={pickerSlot.time}
           consultants={team}
           appointments={appointments}
-          onClose={() => setPickerDate(null)}
+          onClose={() => setPickerSlot(null)}
           onConfirm={(ids, date, time) => {
-            setPickerDate(null)
+            setPickerSlot(null)
             openNewApptModal(ids, date, time)
           }}
         />

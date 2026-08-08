@@ -28,6 +28,7 @@ export function WeekView({
   onConflict,
   onOpenSlotChooser,
   onScheduleLead,
+  onEmptySlotClickGestor,
 }: {
   appointments: Appointment[]
   consultants: Profile[]
@@ -37,6 +38,7 @@ export function WeekView({
   onConflict: (appt: Appointment) => void
   onOpenSlotChooser: (ids: string[]) => void
   onScheduleLead?: (name: string, date: string, time: string) => void
+  onEmptySlotClickGestor?: (date: string, time: string) => void
 }) {
   const { updateAppointment } = useCrm()
   const [anchor, setAnchor] = useState(() => new Date())
@@ -160,7 +162,7 @@ export function WeekView({
                     return (
                       <div
                         key={ds}
-                        className="bg-white min-h-[36px]"
+                        className="bg-white min-h-[36px] p-0.5"
                         onDragOver={(e) => {
                           e.preventDefault()
                           setDragOverKey(key)
@@ -168,7 +170,20 @@ export function WeekView({
                         onDragLeave={() => setDragOverKey((k) => (k === key ? null : k))}
                         onDrop={(e) => handleDrop(e, ds, timeStr)}
                         style={{ background: dragOverKey === key ? '#EAF0FA' : undefined }}
-                      />
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onEmptySlotClickGestor?.(ds, timeStr)}
+                          className="border border-dashed rounded text-[9px] p-1 w-full h-full"
+                          style={{
+                            borderColor: dragOverKey === key ? '#0B2D5B' : '#C7CAD1',
+                            background: 'transparent',
+                            color: '#9AA0A8',
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     )
                   }
 
