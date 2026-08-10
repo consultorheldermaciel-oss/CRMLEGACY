@@ -4,7 +4,7 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { resolveViewScope } from '../lib/viewScope'
 import { formatCurrencyTyped, parseCurrency, toTitleCase } from '../lib/format'
-import { AGENDA_START_HOUR, apptColor, apptTypeLabel, statusColors, statusLabel } from '../lib/domain'
+import { AGENDA_START_HOUR, apptColor, apptTypeLabel, clientKey, statusColors, statusLabel } from '../lib/domain'
 import { classifyVirtualClient, followupAlert } from '../lib/followup'
 import type { Anamnese, Appointment, Client, Policy, PolicyStatus, Profile } from '../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../lib/metlifeContract'
@@ -24,10 +24,6 @@ const STATUS_COLORS: Record<PolicyStatus, { bg: string; color: string }> = {
   ativa: { bg: '#EAF0FA', color: '#0B2D5B' },
   entregue: { bg: '#E4F5EA', color: '#1E7A46' },
   cancelada: { bg: '#FBE7E7', color: '#B23030' },
-}
-
-function clientKey(consultantId: string, name: string) {
-  return `${consultantId}::${name.trim().toLowerCase()}`
 }
 
 type CarteiraTab = 'delay' | 'naoConcluido' | 'carteira'

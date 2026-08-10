@@ -4,7 +4,16 @@ import { useCrm } from '../../context/CrmContext'
 import type { Anamnese, Appointment } from '../../lib/types'
 import { isManagerRole } from '../../lib/types'
 import { METLIFE_PRODUCT_LABELS } from '../../lib/metlifeContract'
-import { agendaSlots, apptColor, apptTypeLabel, isOccupied, minutesToTime, statusColors, statusLabel } from '../../lib/domain'
+import {
+  agendaSlots,
+  apptColor,
+  apptTypeLabel,
+  clientKey,
+  isOccupied,
+  minutesToTime,
+  statusColors,
+  statusLabel,
+} from '../../lib/domain'
 import { dateLabel, dstr, formatCurrencyTyped, parseCurrency, toTitleCase, WEEKDAYS } from '../../lib/format'
 import { buildAnamneseSections } from '../../lib/anamnese'
 import { Modal } from '../ui/Modal'
@@ -42,6 +51,26 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const { consultants, appointments, clients, updateAppointment, deleteAppointment, createAppointment, createClient, updateClient, createPolicy } =
     useCrm()
   const canDelete = (profile && isManagerRole(profile.role)) || appt.created_by === profile?.id
+
+  // This appointment's own ADN can be empty if it was booked before we
+  // started auto-copying it from the client's prior appointments (or via a
+  // path that missed it) — fall back to the most recent other appointment
+  // for the same client that does have it, so the líder never has to hunt
+  // down the original abordagem just to see who the client is.
+  const hasOwnAnamnese = appt.anamnese && Object.keys(appt.anamnese).length > 0
+  const inheritedFrom = !hasOwnAnamnese
+    ? [...appointments]
+        .filter(
+          (a) =>
+            a.id !== appt.id &&
+            a.anamnese &&
+            Object.keys(a.anamnese).length > 0 &&
+            clientKey(a.consultant_id, a.client_name) === clientKey(appt.consultant_id, appt.client_name),
+        )
+        .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))[0]
+    : undefined
+  const effectiveAnamnese = hasOwnAnamnese ? appt.anamnese : (inheritedFrom?.anamnese ?? appt.anamnese)
+
   const [remarcarActive, setRemarcarActive] = useState(false)
   const [remarcarDate, setRemarcarDate] = useState<string | null>(null)
   const [remarcarOffset, setRemarcarOffset] = useState(0)
@@ -52,7 +81,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const [entregaDate, setEntregaDate] = useState<string | null>(null)
   const [entregaOffset, setEntregaOffset] = useState(0)
   const [editingAnamnese, setEditingAnamnese] = useState(false)
-  const [draft, setDraft] = useState<Anamnese>(appt.anamnese)
+  const [draft, setDraft] = useState<Anamnese>(effectiveAnamnese)
   const [selectedProduct, setSelectedProduct] = useState('')
   const [premiumInput, setPremiumInput] = useState('')
   const [capitalSeguradoInput, setCapitalSeguradoInput] = useState('')
@@ -81,7 +110,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const linkedEntrega = appointments.find((a) => a.type === 'entrega' && a.linked_appointment_id === appt.id)
   const showAgendarEntregaButton = appt.type === 'fechamento' && !!appt.policy_closed && !linkedEntrega
 
-  const sections = buildAnamneseSections(appt.anamnese, appt.premium, appt.product)
+  const sections = buildAnamneseSections(effectiveAnamnese, appt.premium, appt.product)
 
   async function setStatus(status: Appointment['status']) {
     await updateAppointment(appt.id, { status })
@@ -667,6 +696,11 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         <div className="text-[12.5px] font-bold text-text-muted tracking-wide mb-2.5">
           ANAMNESE — todas as informações coletadas na abordagem
         </div>
+        {inheritedFrom && (
+          <div className="text-[11px] text-text-faint mb-2.5 no-print">
+            📋 Copiado do {apptTypeLabel(inheritedFrom).toLowerCase()} de {dateLabel(inheritedFrom.date)} — edite se precisar.
+          </div>
+        )}
         {!editingAnamnese ? (
           <AnamneseSectionsView sections={sections} />
         ) : (

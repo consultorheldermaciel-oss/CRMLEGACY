@@ -3,7 +3,15 @@ import { useAuth } from '../../context/AuthContext'
 import { useCrm } from '../../context/CrmContext'
 import type { NewApptSlot } from '../agenda/AgendaPanel'
 import { isManagerRole, type Anamnese, type AppointmentType } from '../../lib/types'
-import { AGENDA_END_HOUR, AGENDA_START_HOUR, agendaSlots, isOccupied, minutesToTime, timeToMinutes } from '../../lib/domain'
+import {
+  AGENDA_END_HOUR,
+  AGENDA_START_HOUR,
+  agendaSlots,
+  clientKey,
+  isOccupied,
+  minutesToTime,
+  timeToMinutes,
+} from '../../lib/domain'
 import { Modal, ModalHeader } from '../ui/Modal'
 import { Chip } from '../ui/Chip'
 import { AnamneseForm } from './AnamneseForm'
@@ -98,6 +106,24 @@ export function NewAppointmentModal({
 
   if (!profile) return null
 
+  // A fechamento/entrega/outros booked for a client who already has an
+  // abordagem (or any prior appointment) with the ADN filled should show
+  // that same info right away — otherwise the líder has to go hunt down
+  // the original abordagem just to see who the client is.
+  function priorAnamneseFor(consultantId: string): Anamnese {
+    if (!clientName.trim()) return {}
+    const key = clientKey(consultantId, clientName)
+    const match = [...appointments]
+      .filter(
+        (a) =>
+          a.anamnese &&
+          Object.keys(a.anamnese).length > 0 &&
+          clientKey(a.consultant_id, a.client_name) === key,
+      )
+      .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))[0]
+    return match?.anamnese ?? {}
+  }
+
   async function handleSave() {
     setSaving(true)
     setSaveError(false)
@@ -119,7 +145,7 @@ export function NewAppointmentModal({
           status: 'agendado',
           wants_manager: wantsManager,
           locked_by_lider: isLiderCreator,
-          anamnese: type === 'abordagem' ? anamnese : {},
+          anamnese: type === 'abordagem' ? anamnese : priorAnamneseFor(consultantId),
           policy_closed: null,
           premium: null,
           product: null,
