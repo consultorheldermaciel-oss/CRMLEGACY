@@ -163,7 +163,8 @@ export function LembretesPage() {
 
 function NotificationsCard() {
   const { profile } = useAuth()
-  const { updateMyNotifyLeadMinutes, savePushSubscription, removePushSubscription } = useCrm()
+  const { updateMyNotifyLeadMinutes, updateMyNotifyWhatsapp, savePushSubscription, removePushSubscription } = useCrm()
+  const [whatsappBusy, setWhatsappBusy] = useState(false)
   const [supported] = useState(() => isPushSupported())
   const [checking, setChecking] = useState(true)
   const [subscribed, setSubscribed] = useState(false)
@@ -215,6 +216,12 @@ function NotificationsCard() {
   async function handleLeadChange(minutes: number) {
     setLeadMinutes(minutes)
     await updateMyNotifyLeadMinutes(minutes)
+  }
+
+  async function handleToggleWhatsapp() {
+    setWhatsappBusy(true)
+    await updateMyNotifyWhatsapp(!profile?.notify_whatsapp)
+    setWhatsappBusy(false)
   }
 
   return (
@@ -285,6 +292,25 @@ function NotificationsCard() {
           </div>
         </>
       )}
+
+      <div className="border-t border-border mt-4 pt-4">
+        <div className="text-[13px] font-semibold mb-1.5">📱 Lembrete por WhatsApp</div>
+        {!profile.phone ? (
+          <div className="text-[11.5px] text-text-faint">
+            Peça pro seu líder cadastrar seu telefone na tela Equipe pra poder ativar esse aviso.
+          </div>
+        ) : (
+          <label className="flex items-center gap-2 text-[12.5px]">
+            <input
+              type="checkbox"
+              checked={!!profile.notify_whatsapp}
+              disabled={whatsappBusy}
+              onChange={handleToggleWhatsapp}
+            />
+            Enviar esse mesmo lembrete por WhatsApp pro {profile.phone}
+          </label>
+        )}
+      </div>
     </div>
   )
 }

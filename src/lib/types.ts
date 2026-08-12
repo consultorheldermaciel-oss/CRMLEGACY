@@ -57,6 +57,7 @@ export interface Profile {
   extra_goals: ExtraGoal[]
   followup_goals: FollowupGoals
   notify_lead_minutes: number
+  notify_whatsapp: boolean
   created_at: string
 }
 

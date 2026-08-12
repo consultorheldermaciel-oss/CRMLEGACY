@@ -70,6 +70,24 @@ Function rodando de tempos em tempos:
    apontando para a URL da função, cabeçalho `x-cron-secret` com o mesmo valor do passo 3, rodando a cada minuto
    (`* * * * *`).
 
+### Canal extra: WhatsApp (opcional, via Twilio)
+
+Além da notificação de tela, cada consultor pode ativar em Lembretes o mesmo lembrete por WhatsApp (precisa ter
+telefone cadastrado — campo na tela Equipe). Isso é opcional: sem configurar nada, o resto do app funciona normal,
+só o toggle de WhatsApp fica sem efeito.
+
+1. Crie uma conta em [twilio.com](https://www.twilio.com) e ative o produto WhatsApp.
+2. Pra testar rápido: use o **Sandbox do WhatsApp da Twilio** (Messaging → Try it out → Send a WhatsApp message) —
+   cada consultor manda a mensagem de "join" indicada pro número de sandbox, e já recebe mensagens de teste.
+3. Pra produção de verdade: crie um **Content Template** (Messaging → Content Template Builder) com duas variáveis,
+   por exemplo `🔔 Lembrete Legacy: {{1}} com {{2}}.`, e envie pra aprovação da Meta (pode levar de minutos a alguns
+   dias). Anote o Content SID gerado (começa com `HX`).
+4. Adicione os segredos da mesma Edge Function `send-appointment-reminders` (Project Settings → Edge Functions →
+   Secrets): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (ex: `whatsapp:+14155238886`) e,
+   depois de aprovado, `TWILIO_WHATSAPP_CONTENT_SID`. Sem o Content SID, a função manda texto livre — funciona no
+   sandbox, mas números fora do sandbox não recebem.
+5. Rode a migration `0023_whatsapp_reminders.sql`.
+
 ## Rodando localmente
 
 ```bash

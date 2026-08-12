@@ -41,6 +41,7 @@ interface CrmState {
   ) => Promise<boolean>
   updateMyColor: (color: string) => Promise<{ error: string | null }>
   updateMyNotifyLeadMinutes: (minutes: number) => Promise<{ error: string | null }>
+  updateMyNotifyWhatsapp: (enabled: boolean) => Promise<{ error: string | null }>
   savePushSubscription: (sub: { endpoint: string; p256dh: string; auth: string }) => Promise<{ error: string | null }>
   removePushSubscription: (endpoint: string) => Promise<void>
   createDependent: (payload: { consultant_id: string; name: string; birth_date: string | null }) => Promise<void>
@@ -278,6 +279,13 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     return { error: null }
   }
 
+  async function updateMyNotifyWhatsapp(enabled: boolean) {
+    const { error } = await supabase.rpc('set_own_notify_whatsapp', { enabled })
+    if (error) return { error: error.message }
+    await refresh()
+    return { error: null }
+  }
+
   async function savePushSubscription(sub: { endpoint: string; p256dh: string; auth: string }) {
     if (!session) return { error: 'Não autenticado.' }
     const { error } = await supabase.from('push_subscriptions').upsert(
@@ -442,6 +450,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       checkLiderBusy,
       updateMyColor,
       updateMyNotifyLeadMinutes,
+      updateMyNotifyWhatsapp,
       savePushSubscription,
       removePushSubscription,
       createDependent,

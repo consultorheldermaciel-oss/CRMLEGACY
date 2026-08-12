@@ -1,10 +1,11 @@
 // Edge Function: send-appointment-reminders
 // Runs on a schedule (a Supabase Cron Job hitting this URL every minute) and
-// pushes a browser/phone notification to each consultor whose next
-// appointment just entered their configured lead time
-// (profiles.notify_lead_minutes, default 30). Acts on behalf of the whole
-// team via the service role key — there's no single authenticated caller,
-// since this is only ever invoked by the scheduler.
+// alerts each consultor whose next appointment just entered their
+// configured lead time (profiles.notify_lead_minutes, default 30) — as a
+// browser/phone push notification, and optionally as a WhatsApp message for
+// consultores who opted into that channel (profiles.notify_whatsapp). Acts
+// on behalf of the whole team via the service role key — there's no single
+// authenticated caller, since this is only ever invoked by the scheduler.
 // Deploy: supabase functions deploy send-appointment-reminders
 //
 // Required secrets (Project Settings → Edge Functions → Secrets, or
@@ -12,6 +13,14 @@
 // VAPID_SUBJECT (e.g. mailto:voce@exemplo.com), CRON_SECRET (any random
 // string — set the same value as a header when creating the Cron Job so
 // only that job can trigger this function).
+//
+// Optional, for the WhatsApp channel (skipped silently if unset):
+// TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM (e.g.
+// "whatsapp:+14155238886"), and TWILIO_WHATSAPP_CONTENT_SID — the SID of an
+// approved WhatsApp message template with two variables ({{1}} = "Fechamento
+// às 15:00", {{2}} = client name). Without a Content SID, messages are sent
+// as free-form text instead, which only reaches numbers that joined the
+// Twilio WhatsApp Sandbox — fine for testing, not for production.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
@@ -35,6 +44,42 @@ const TYPE_LABELS: Record<string, string> = {
 // the timezone this function happens to run in.
 function apptInstant(date: string, time: string): number {
   return new Date(`${date}T${time}:00-03:00`).getTime()
+}
+
+// profiles.phone is free-typed by the líder (e.g. "(11) 99999-0000") —
+// normalize to E.164 assuming Brazil when no country code is present.
+function toE164BR(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length < 10) return null
+  if (digits.startsWith('55') && digits.length >= 12) return `+${digits}`
+  return `+55${digits}`
+}
+
+async function sendWhatsApp(toPhone: string, title: string, clientName: string) {
+  const sid = Deno.env.get('TWILIO_ACCOUNT_SID')
+  const token = Deno.env.get('TWILIO_AUTH_TOKEN')
+  const from = Deno.env.get('TWILIO_WHATSAPP_FROM')
+  if (!sid || !token || !from) return
+  const to = toE164BR(toPhone)
+  if (!to) return
+
+  const contentSid = Deno.env.get('TWILIO_WHATSAPP_CONTENT_SID')
+  const params = new URLSearchParams({ From: from, To: `whatsapp:${to}` })
+  if (contentSid) {
+    params.set('ContentSid', contentSid)
+    params.set('ContentVariables', JSON.stringify({ '1': title, '2': clientName }))
+  } else {
+    params.set('Body', `🔔 Lembrete Legacy: ${title} com ${clientName}.`)
+  }
+
+  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params,
+  }).catch((err) => console.error('WhatsApp send failed', err))
 }
 
 Deno.serve(async (req) => {
@@ -65,28 +110,29 @@ Deno.serve(async (req) => {
   if (upcoming.length === 0) return json({ ok: true, sent: 0 })
 
   const consultantIds = [...new Set(upcoming.map((a) => a.consultant_id))]
-  const { data: profiles } = await admin.from('profiles').select('id, notify_lead_minutes').in('id', consultantIds)
-  const leadById = new Map((profiles ?? []).map((p) => [p.id as string, (p.notify_lead_minutes as number) ?? 30]))
+  const { data: profiles } = await admin
+    .from('profiles')
+    .select('id, notify_lead_minutes, notify_whatsapp, phone')
+    .in('id', consultantIds)
+  const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p]))
 
   const due = upcoming.filter((a) => {
-    const lead = leadById.get(a.consultant_id) ?? 30
+    const lead = (profileById.get(a.consultant_id)?.notify_lead_minutes as number | undefined) ?? 30
     return apptInstant(a.date, a.time) - now <= lead * 60_000
   })
   if (due.length === 0) return json({ ok: true, sent: 0 })
 
   let sent = 0
   for (const appt of due) {
+    const title = `${TYPE_LABELS[appt.type] ?? appt.type} às ${appt.time}`
+
     const { data: subs } = await admin
       .from('push_subscriptions')
       .select('id, endpoint, p256dh, auth')
       .eq('consultant_id', appt.consultant_id)
 
     if (subs && subs.length > 0) {
-      const payload = JSON.stringify({
-        title: `${TYPE_LABELS[appt.type] ?? appt.type} às ${appt.time}`,
-        body: appt.client_name,
-        url: '/',
-      })
+      const payload = JSON.stringify({ title, body: appt.client_name, url: '/' })
       for (const sub of subs) {
         try {
           await webpush.sendNotification(
@@ -101,6 +147,12 @@ Deno.serve(async (req) => {
         }
       }
     }
+
+    const consultantProfile = profileById.get(appt.consultant_id)
+    if (consultantProfile?.notify_whatsapp && consultantProfile.phone) {
+      await sendWhatsApp(consultantProfile.phone as string, title, appt.client_name)
+    }
+
     await admin.from('appointments').update({ reminder_sent: true }).eq('id', appt.id)
     sent++
   }
