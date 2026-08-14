@@ -452,6 +452,18 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         <button type="button" onClick={() => setEditingAnamnese((v) => !v)} className="bg-transparent border-none p-0 text-navy">
           ✏️ {editingAnamnese ? 'Cancelar edição' : 'Editar anamnese'}
         </button>
+        {!remarcarActive && (
+          <button type="button" onClick={() => setRemarcarActive(true)} className="bg-transparent border-none p-0 text-navy">
+            📅 Alterar data/horário
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => updateAppointment(appt.id, { wants_manager: !appt.wants_manager })}
+          className="bg-transparent border-none p-0 text-navy"
+        >
+          {appt.wants_manager ? '❌ Remover líder deste agendamento' : '⭐ Chamar o líder de unidade'}
+        </button>
         {canDelete && (
           <button
             type="button"
@@ -480,9 +492,6 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
             </button>
             <button type="button" onClick={() => setStatus('avisou_nao_ira')} className="bg-yellow text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold">
               Avisou que não iria
-            </button>
-            <button type="button" onClick={() => setRemarcarActive(true)} className="bg-text-muted text-white border-none rounded-lg px-3.5 py-2 text-[12.5px] font-semibold">
-              Remarcar
             </button>
           </div>
         </div>
