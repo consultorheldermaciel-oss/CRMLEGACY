@@ -4,6 +4,7 @@ import { useUi } from '../context/UiContext'
 import { computeKpis, type Period } from '../lib/kpi'
 import { resolveViewScope } from '../lib/viewScope'
 import { AgendaPanel } from '../components/agenda/AgendaPanel'
+import { HotPhoneModal } from '../components/modals/HotPhoneModal'
 
 const PERIODS: [Period, string][] = [
   ['dia', 'Dia'],
@@ -16,6 +17,7 @@ export function DashboardPage() {
   const { consultants, appointments } = useCrm()
   const { viewingId } = useUi()
   const [period, setPeriod] = useState<Period>('mes')
+  const [hotPhoneOpen, setHotPhoneOpen] = useState(false)
 
   const { isGestorView, team, memberIds } = resolveViewScope(consultants, viewingId)
   const scopeConsultants = isGestorView ? team : team.filter((c) => c.id === viewingId)
@@ -23,7 +25,7 @@ export function DashboardPage() {
   const kpis = computeKpis(scopeAppointments, scopeConsultants, period, new Date())
 
   const periodSelector = (
-    <div className="flex justify-start mb-3.5">
+    <div className="flex justify-between items-center flex-wrap gap-2.5 mb-3.5">
       <div className="flex gap-1.5 bg-card border border-border p-1 rounded-[9px]">
         {PERIODS.map(([key, label]) => (
           <button
@@ -37,6 +39,15 @@ export function DashboardPage() {
           </button>
         ))}
       </div>
+      {isGestorView && (
+        <button
+          type="button"
+          onClick={() => setHotPhoneOpen(true)}
+          className="bg-[#9C6B0A] text-white border-none rounded-lg px-3.5 py-2 text-[13px] font-bold whitespace-nowrap"
+        >
+          🔥 Hot Phone
+        </button>
+      )}
     </div>
   )
 
@@ -99,6 +110,8 @@ export function DashboardPage() {
           {kpiSection}
         </>
       )}
+
+      {hotPhoneOpen && <HotPhoneModal team={team} onClose={() => setHotPhoneOpen(false)} />}
     </div>
   )
 }
