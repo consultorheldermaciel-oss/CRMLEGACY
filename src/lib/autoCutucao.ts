@@ -1,5 +1,5 @@
 import { followupAlert } from './followup'
-import type { Policy, Profile, Task } from './types'
+import type { Client, Policy, Profile, Task } from './types'
 
 const DEFAULT_GOALS = { naoProtocolado: 7, delay: 3, entrega: 30, recalibrar: 365 }
 
@@ -22,6 +22,7 @@ function todayStr(d: Date) {
 export function computeAutoCutucaoCandidates(
   policies: Policy[],
   consultants: Profile[],
+  clients: Client[],
   tasks: Task[],
   today: Date,
 ): AutoCutucaoCandidate[] {
@@ -33,6 +34,7 @@ export function computeAutoCutucaoCandidates(
     if (!p.issued_date) continue
     const consultant = consultants.find((c) => c.id === p.consultant_id)
     if (!consultant) continue
+    const clientName = clients.find((c) => c.id === p.client_id)?.name ?? 'cliente sem nome cadastrado'
     const assignedBy = consultant.manager_id ?? consultant.id
     const goals = consultant.followup_goals ?? DEFAULT_GOALS
 
@@ -42,7 +44,7 @@ export function computeAutoCutucaoCandidates(
         candidates.push({
           consultant_id: p.consultant_id,
           assigned_by: assignedBy,
-          text: `⚠️ Entregar a apólice de ${p.product} — passou de ${alert.limit} dias sem entrega.`,
+          text: `⚠️ Entregar a apólice de ${p.product} de ${clientName} — passou de ${alert.limit} dias sem entrega.`,
           deadline,
           auto_kind: 'entrega',
           auto_policy_id: p.id,
@@ -56,7 +58,7 @@ export function computeAutoCutucaoCandidates(
         candidates.push({
           consultant_id: p.consultant_id,
           assigned_by: assignedBy,
-          text: `🔄 Já faz ${alert.limit >= 365 ? '1 ano' : `${alert.limit} dias`} — hora de retornar pra recalibrar a apólice de ${p.product}.`,
+          text: `🔄 Já faz ${alert.limit >= 365 ? '1 ano' : `${alert.limit} dias`} — hora de retornar pra recalibrar a apólice de ${p.product} de ${clientName}.`,
           deadline,
           auto_kind: 'recalibrar',
           auto_policy_id: p.id,

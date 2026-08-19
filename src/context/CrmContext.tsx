@@ -143,7 +143,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   // on (auto_policy_id, auto_kind) keeps this idempotent across sessions.
   useEffect(() => {
     if (!session || loading) return
-    const candidates = computeAutoCutucaoCandidates(policies, consultants, tasks, new Date())
+    const candidates = computeAutoCutucaoCandidates(policies, consultants, clients, tasks, new Date())
     candidates.forEach((c) => {
       supabase
         .from('tasks')
@@ -153,7 +153,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
         })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, loading, policies, consultants, tasks])
+  }, [session, loading, policies, consultants, clients, tasks])
 
   async function createAppointment(
     payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'reminder_sent'>,
