@@ -165,6 +165,7 @@ function NotificationsCard() {
   const { profile } = useAuth()
   const { updateMyNotifyLeadMinutes, updateMyNotifyWhatsapp, savePushSubscription, removePushSubscription } = useCrm()
   const [whatsappBusy, setWhatsappBusy] = useState(false)
+  const [whatsappError, setWhatsappError] = useState<string | null>(null)
   const [supported] = useState(() => isPushSupported())
   const [checking, setChecking] = useState(true)
   const [subscribed, setSubscribed] = useState(false)
@@ -220,7 +221,9 @@ function NotificationsCard() {
 
   async function handleToggleWhatsapp() {
     setWhatsappBusy(true)
-    await updateMyNotifyWhatsapp(!profile?.notify_whatsapp)
+    setWhatsappError(null)
+    const { error } = await updateMyNotifyWhatsapp(!profile?.notify_whatsapp)
+    if (error) setWhatsappError(error)
     setWhatsappBusy(false)
   }
 
@@ -319,6 +322,7 @@ function NotificationsCard() {
             Enviar esse mesmo lembrete por WhatsApp pro {profile.phone}
           </label>
         )}
+        {whatsappError && <div className="text-[11.5px] font-semibold text-[#B23030] mt-2">{whatsappError}</div>}
       </div>
     </div>
   )
