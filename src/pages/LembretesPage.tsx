@@ -269,24 +269,33 @@ function NotificationsCard() {
 
           {error && <div className="text-[11.5px] font-semibold text-[#B23030] mb-3">{error}</div>}
 
-          <div className="text-xs text-text-muted mb-1.5">Avisar com quanto tempo de antecedência:</div>
-          <div className="flex gap-1.5 flex-wrap">
-            {LEAD_OPTIONS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => handleLeadChange(m)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold border"
-                style={{
-                  borderColor: leadMinutes === m ? '#0B2D5B' : '#D8D5CD',
-                  background: leadMinutes === m ? '#0B2D5B' : '#fff',
-                  color: leadMinutes === m ? '#fff' : '#1A1D23',
-                }}
-              >
-                {formatLead(m)}
-              </button>
-            ))}
-          </div>
+          {isManagerRole(profile.role) ? (
+            <>
+              <div className="text-xs text-text-muted mb-1.5">Avisar com quanto tempo de antecedência:</div>
+              <div className="flex gap-1.5 flex-wrap">
+                {LEAD_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => handleLeadChange(m)}
+                    className="rounded-full px-3 py-1.5 text-xs font-semibold border"
+                    style={{
+                      borderColor: leadMinutes === m ? '#0B2D5B' : '#D8D5CD',
+                      background: leadMinutes === m ? '#0B2D5B' : '#fff',
+                      color: leadMinutes === m ? '#fff' : '#1A1D23',
+                    }}
+                  >
+                    {formatLead(m)}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-[12px] text-text-muted">
+              Antecedência do aviso: <span className="font-semibold">{formatLead(leadMinutes)}</span> antes de cada
+              agendamento — definida pelo seu líder de unidade.
+            </div>
+          )}
           <div className="text-[11px] text-text-faint mt-2">
             É por aparelho — se usar o Legacy no celular e no computador, ative nos dois.
           </div>
