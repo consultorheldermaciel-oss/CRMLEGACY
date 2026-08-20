@@ -13,43 +13,37 @@ const PERIODS: [Period, string][] = [
   ['ano', 'Ano'],
 ]
 
+function PeriodSelector({ period, onChange }: { period: Period; onChange: (p: Period) => void }) {
+  return (
+    <div className="flex gap-1.5 bg-card border border-border p-1 rounded-[9px]">
+      {PERIODS.map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          className="rounded-md px-3.5 py-1.5 text-[12.5px] font-semibold"
+          style={{ background: period === key ? '#0B2D5B' : 'transparent', color: period === key ? '#fff' : '#1A1D23' }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function DashboardPage() {
   const { consultants, appointments } = useCrm()
   const { viewingId } = useUi()
-  const [period, setPeriod] = useState<Period>('mes')
+  // Independent from agendaPeriod on purpose — picking a period for the KPI
+  // numbers shouldn't jump the calendar below to match, and vice versa.
+  const [kpiPeriod, setKpiPeriod] = useState<Period>('mes')
+  const [agendaPeriod, setAgendaPeriod] = useState<Period>('mes')
   const [hotPhoneOpen, setHotPhoneOpen] = useState(false)
 
   const { isGestorView, team, memberIds } = resolveViewScope(consultants, viewingId)
   const scopeConsultants = isGestorView ? team : team.filter((c) => c.id === viewingId)
   const scopeAppointments = memberIds ? appointments.filter((a) => memberIds.includes(a.consultant_id)) : appointments
-  const kpis = computeKpis(scopeAppointments, scopeConsultants, period, new Date())
-
-  const periodSelector = (
-    <div className="flex justify-between items-center flex-wrap gap-2.5 mb-3.5">
-      <div className="flex gap-1.5 bg-card border border-border p-1 rounded-[9px]">
-        {PERIODS.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setPeriod(key)}
-            className="rounded-md px-3.5 py-1.5 text-[12.5px] font-semibold"
-            style={{ background: period === key ? '#0B2D5B' : 'transparent', color: period === key ? '#fff' : '#1A1D23' }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {isGestorView && (
-        <button
-          type="button"
-          onClick={() => setHotPhoneOpen(true)}
-          className="bg-[#9C6B0A] text-white border-none rounded-lg px-3.5 py-2 text-[13px] font-bold whitespace-nowrap"
-        >
-          🔥 Hot Phone
-        </button>
-      )}
-    </div>
-  )
+  const kpis = computeKpis(scopeAppointments, scopeConsultants, kpiPeriod, new Date())
 
   const kpiSection = isGestorView ? (
     <div className="grid gap-3.5 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
@@ -96,20 +90,25 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col">
-      {periodSelector}
-      {isGestorView ? (
-        <>
-          {kpiSection}
-          <AgendaPanel period={period} />
-        </>
-      ) : (
-        <>
-          <div className="mb-6">
-            <AgendaPanel period={period} />
-          </div>
-          {kpiSection}
-        </>
-      )}
+      <div className="flex justify-between items-center flex-wrap gap-2.5 mb-3.5">
+        <PeriodSelector period={kpiPeriod} onChange={setKpiPeriod} />
+        {isGestorView && (
+          <button
+            type="button"
+            onClick={() => setHotPhoneOpen(true)}
+            className="bg-[#9C6B0A] text-white border-none rounded-lg px-3.5 py-2 text-[13px] font-bold whitespace-nowrap"
+          >
+            🔥 Hot Phone
+          </button>
+        )}
+      </div>
+
+      {kpiSection}
+
+      <div className="mb-3.5">
+        <PeriodSelector period={agendaPeriod} onChange={setAgendaPeriod} />
+      </div>
+      <AgendaPanel period={agendaPeriod} />
 
       {hotPhoneOpen && <HotPhoneModal team={team} onClose={() => setHotPhoneOpen(false)} />}
     </div>
