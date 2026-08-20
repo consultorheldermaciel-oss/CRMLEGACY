@@ -483,6 +483,29 @@ function EditConsultantPanel({
           </div>
         </div>
         <div>
+          <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">🔔 LEMBRETE DE AGENDAMENTO</div>
+          <div className="text-[11.5px] text-text-faint mb-2">
+            Com quanto tempo de antecedência {editing.name.split(' ')[0]} recebe o alerta no celular.
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {[10, 15, 30, 60, 120].map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => updateConsultant(editing.id, { notify_lead_minutes: m })}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold border"
+                style={{
+                  borderColor: editing.notify_lead_minutes === m ? '#0B2D5B' : '#D8D5CD',
+                  background: editing.notify_lead_minutes === m ? '#0B2D5B' : '#fff',
+                  color: editing.notify_lead_minutes === m ? '#fff' : '#1A1D23',
+                }}
+              >
+                {m < 60 ? `${m} min` : `${m / 60}h`}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
           <div className="text-[11px] font-bold text-text-muted tracking-wide mb-2">CÔNJUGE</div>
           <div className="grid grid-cols-2 gap-2.5">
             <input
