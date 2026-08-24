@@ -70,6 +70,19 @@ Function rodando de tempos em tempos:
    apontando para a URL da função, cabeçalho `x-cron-secret` com o mesmo valor do passo 3, rodando a cada minuto
    (`* * * * *`).
 
+### Resumo diário às 6h (opcional)
+
+Além do alerta por compromisso, dá pra ativar um resumo enviado uma vez por dia, de manhã, com a lista de
+compromissos do dia — reaproveita os mesmos segredos de `send-appointment-reminders` acima, nenhum segredo novo.
+
+1. Deploy:
+   ```
+   supabase functions deploy send-daily-digest
+   ```
+2. Cron Job separado: Database → Cron Jobs → novo job, método POST, mesmo cabeçalho `x-cron-secret`, apontando pra
+   URL dessa função, rodando **uma vez por dia às 09:00 UTC** (`0 9 * * *`) — isso equivale a 06:00 no horário de
+   Brasília.
+
 ### Canal extra: WhatsApp (opcional, via Twilio)
 
 Além da notificação de tela, cada consultor pode ativar em Lembretes o mesmo lembrete por WhatsApp (precisa ter
