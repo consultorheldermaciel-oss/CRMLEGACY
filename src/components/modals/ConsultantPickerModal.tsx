@@ -9,6 +9,7 @@ export function ConsultantPickerModal({
   time,
   consultants,
   appointments,
+  selfProfile,
   onClose,
   onConfirm,
 }: {
@@ -19,6 +20,10 @@ export function ConsultantPickerModal({
   time?: string
   consultants: Profile[]
   appointments: Appointment[]
+  /** The líder/diretor viewing this picker — offered as its own selectable
+   * option so they can book something just for themselves (e.g. "Outro
+   * evento"), not only for their consultores. */
+  selfProfile?: Profile
   onClose: () => void
   onConfirm: (ids: string[], date: string, time: string) => void
 }) {
@@ -50,6 +55,25 @@ export function ConsultantPickerModal({
       <div className="font-heading font-bold text-base mb-1">Para quem é esse agendamento?</div>
       <div className="text-[12.5px] text-text-muted mb-4">{dateLabel(date)}</div>
       <div className="flex flex-col gap-2 mb-4">
+        {selfProfile && (
+          <button
+            type="button"
+            onClick={() => toggle(selfProfile.id)}
+            className="flex items-center gap-2.5 border rounded-lg px-3 py-2.5 text-[13px] font-semibold text-left"
+            style={{
+              borderColor: selected.includes(selfProfile.id) ? '#0B2D5B' : '#D8D5CD',
+              background: selected.includes(selfProfile.id) ? '#EAF0FA' : '#fff',
+            }}
+          >
+            <span
+              className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+              style={{ background: selfProfile.color }}
+            >
+              {initials(selfProfile.name)}
+            </span>
+            <span>🧑‍💼 Só eu ({selfProfile.name.split(' ')[0]})</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setSelected(allSelected ? [] : consultants.map((c) => c.id))}

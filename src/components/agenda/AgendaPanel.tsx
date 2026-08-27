@@ -166,6 +166,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
           time={pickerSlot.time}
           consultants={team}
           appointments={appointments}
+          selfProfile={profile}
           onClose={() => setPickerSlot(null)}
           onConfirm={(ids, date, time) => {
             setPickerSlot(null)
