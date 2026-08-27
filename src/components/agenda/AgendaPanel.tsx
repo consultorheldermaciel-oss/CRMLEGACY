@@ -14,7 +14,6 @@ import { ClientCardModal } from '../modals/ClientCardModal'
 import { ConflictAlertModal } from '../modals/ConflictAlertModal'
 import { ConsultantPickerModal } from '../modals/ConsultantPickerModal'
 import { SlotChooserModal } from '../modals/SlotChooserModal'
-import { SlotChoiceModal } from '../modals/SlotChoiceModal'
 import { BlockAgendaModal } from '../modals/BlockAgendaModal'
 
 export interface NewApptSlot {
@@ -34,7 +33,7 @@ const FILTER_DEFS: [Appointment['type'] | 'todos', string][] = [
 export function AgendaPanel({ period, prefillClientName }: { period: Period; prefillClientName?: string }) {
   const { profile } = useAuth()
   const { consultants, appointments } = useCrm()
-  const { viewingId, openTaskModal } = useUi()
+  const { viewingId } = useUi()
   const [apptTypeFilter, setApptTypeFilter] = useState<Appointment['type'] | 'todos'>('todos')
 
   const [selectedApptId, setSelectedApptId] = useState<string | null>(null)
@@ -43,9 +42,6 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
   const [conflictAppt, setConflictAppt] = useState<Appointment | null>(null)
   const [pickerSlot, setPickerSlot] = useState<{ date: string; time?: string } | null>(null)
   const [slotChooserApptIds, setSlotChooserApptIds] = useState<string[] | null>(null)
-  const [slotChoiceSlot, setSlotChoiceSlot] = useState<{ consultantId: string; date: string; time: string } | null>(
-    null,
-  )
   const [blockAgendaOpen, setBlockAgendaOpen] = useState(false)
 
   if (!profile) return null
@@ -60,14 +56,6 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
   function openNewApptModal(consultantIds: string[], date: string, time: string) {
     setDragPrefillName(null)
     setNewApptSlot({ consultantIds, date, time })
-  }
-
-  function onEmptySlotClick(consultantId: string, date: string, time: string) {
-    if (isGestorView) {
-      setSlotChoiceSlot({ consultantId, date, time })
-    } else {
-      openNewApptModal([consultantId], date, time)
-    }
   }
 
   function handleScheduleLead(name: string, date: string, time: string) {
@@ -145,9 +133,11 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
           viewingId={viewingId}
           apptTypeFilter={apptTypeFilter}
           onOpenAppt={setSelectedApptId}
-          onEmptySlotClick={onEmptySlotClick}
+          onEmptySlotClick={(consultantId, date, time) => openNewApptModal([consultantId], date, time)}
           onConflict={setConflictAppt}
           onScheduleLead={!isGestorView ? handleScheduleLead : undefined}
+          onOpenSlotChooser={setSlotChooserApptIds}
+          onEmptySlotClickGestor={isGestorView ? (date, time) => setPickerSlot({ date, time }) : undefined}
         />
       )}
       {period === 'ano' && <YearView appointments={scoped} />}
@@ -193,24 +183,6 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
           onPick={(id) => {
             setSlotChooserApptIds(null)
             setSelectedApptId(id)
-          }}
-        />
-      )}
-
-      {slotChoiceSlot && (
-        <SlotChoiceModal
-          slot={slotChoiceSlot}
-          consultants={team}
-          onClose={() => setSlotChoiceSlot(null)}
-          onScheduleClient={() => {
-            const s = slotChoiceSlot
-            setSlotChoiceSlot(null)
-            openNewApptModal([s.consultantId], s.date, s.time)
-          }}
-          onAssignTask={() => {
-            const s = slotChoiceSlot
-            setSlotChoiceSlot(null)
-            openTaskModal(s.consultantId, s.date)
           }}
         />
       )}
