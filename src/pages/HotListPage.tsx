@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { toTitleCase } from '../lib/format'
-import { HOT_LEAD_DRAG_TYPE } from '../lib/domain'
+import { HOT_LEAD_DRAG_TYPE, encodeHotLeadDrag } from '../lib/domain'
 import { downloadCsv } from '../lib/report'
 import { parseHotListFile } from '../lib/hotListImport'
 import { hotLeadStatus } from '../lib/hotListStatus'
@@ -22,6 +22,20 @@ const PERIODS: [Period, string][] = [
   ['semana', 'Semana'],
   ['mes', 'Mês'],
 ]
+
+/** Everything the consultor recorded about this lead — phone, source, and
+ * whatever characteristics they wrote down — packed into one string so it
+ * survives into the appointment's notes once it turns into a calendar
+ * event, instead of only the name making it through. */
+function leadInfoText(lead: HotLead): string {
+  const header = [
+    lead.phone,
+    lead.source === 'recomendacao' ? `Recomendação de ${lead.recommended_by ?? '—'}` : 'Mercado próprio',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return [header, lead.notes].filter(Boolean).join('\n')
+}
 
 export function HotListPage() {
   const { profile } = useAuth()
@@ -215,7 +229,7 @@ function HotLeadSchedulerModal({ lead, onClose }: { lead: HotLead; onClose: () =
       <div className="text-[12px] text-text-faint mb-3">
         Clique em um horário livre no calendário pra agendar com {lead.name}.
       </div>
-      <AgendaPanel period={period} prefillClientName={lead.name} />
+      <AgendaPanel period={period} prefillClientName={lead.name} prefillNotes={leadInfoText(lead)} />
     </Modal>
   )
 }
@@ -237,7 +251,7 @@ function HotLeadRow({
   return (
     <div
       draggable
-      onDragStart={(e) => e.dataTransfer.setData(HOT_LEAD_DRAG_TYPE, lead.name)}
+      onDragStart={(e) => e.dataTransfer.setData(HOT_LEAD_DRAG_TYPE, encodeHotLeadDrag({ name: lead.name, notes: leadInfoText(lead) }))}
       onClick={onExpand}
       className="bg-card border border-border rounded-2xl p-4 cursor-pointer active:cursor-grabbing hover:border-[#0B2D5B]"
       title="Clique pra ver detalhes · arraste até um horário na agenda pra agendar"

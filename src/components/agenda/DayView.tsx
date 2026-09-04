@@ -9,6 +9,7 @@ import {
   apptColor,
   apptSpan,
   apptTypeLabel,
+  decodeHotLeadDrag,
   minutesToTime,
   statusLabel,
   timeToMinutes,
@@ -36,7 +37,7 @@ export function DayView({
   onOpenAppt: (id: string) => void
   onEmptySlotClick: (consultantId: string, date: string, time: string) => void
   onConflict: (appt: Appointment) => void
-  onScheduleLead?: (name: string, date: string, time: string) => void
+  onScheduleLead?: (name: string, notes: string, date: string, time: string) => void
   onOpenSlotChooser?: (ids: string[]) => void
   onEmptySlotClickGestor?: (date: string, time: string) => void
 }) {
@@ -59,9 +60,10 @@ export function DayView({
   function handleDrop(e: React.DragEvent, time: string) {
     e.preventDefault()
     setDragOverKey(null)
-    const leadName = e.dataTransfer.getData(HOT_LEAD_DRAG_TYPE)
-    if (leadName && onScheduleLead) {
-      onScheduleLead(leadName, ds, time)
+    const leadRaw = e.dataTransfer.getData(HOT_LEAD_DRAG_TYPE)
+    const lead = leadRaw ? decodeHotLeadDrag(leadRaw) : null
+    if (lead && onScheduleLead) {
+      onScheduleLead(lead.name, lead.notes, ds, time)
       return
     }
     const apptId = e.dataTransfer.getData('text/plain')

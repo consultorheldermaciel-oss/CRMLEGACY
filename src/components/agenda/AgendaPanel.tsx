@@ -30,7 +30,15 @@ const FILTER_DEFS: [Appointment['type'] | 'todos', string][] = [
   ['outros', 'Outros'],
 ]
 
-export function AgendaPanel({ period, prefillClientName }: { period: Period; prefillClientName?: string }) {
+export function AgendaPanel({
+  period,
+  prefillClientName,
+  prefillNotes,
+}: {
+  period: Period
+  prefillClientName?: string
+  prefillNotes?: string
+}) {
   const { profile } = useAuth()
   const { consultants, appointments } = useCrm()
   const { viewingId } = useUi()
@@ -39,6 +47,7 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
   const [selectedApptId, setSelectedApptId] = useState<string | null>(null)
   const [newApptSlot, setNewApptSlot] = useState<NewApptSlot | null>(null)
   const [dragPrefillName, setDragPrefillName] = useState<string | null>(null)
+  const [dragPrefillNotes, setDragPrefillNotes] = useState<string | null>(null)
   const [conflictAppt, setConflictAppt] = useState<Appointment | null>(null)
   const [pickerSlot, setPickerSlot] = useState<{ date: string; time?: string } | null>(null)
   const [slotChooserApptIds, setSlotChooserApptIds] = useState<string[] | null>(null)
@@ -55,11 +64,13 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
 
   function openNewApptModal(consultantIds: string[], date: string, time: string) {
     setDragPrefillName(null)
+    setDragPrefillNotes(null)
     setNewApptSlot({ consultantIds, date, time })
   }
 
-  function handleScheduleLead(name: string, date: string, time: string) {
+  function handleScheduleLead(name: string, notes: string, date: string, time: string) {
     setDragPrefillName(name)
+    setDragPrefillNotes(notes)
     setNewApptSlot({ consultantIds: [viewingId], date, time })
   }
 
@@ -149,9 +160,11 @@ export function AgendaPanel({ period, prefillClientName }: { period: Period; pre
           slot={newApptSlot}
           isGestorAggregate={isGestorView}
           prefillClientName={dragPrefillName ?? prefillClientName}
+          prefillNotes={dragPrefillNotes ?? prefillNotes}
           onClose={() => {
             setNewApptSlot(null)
             setDragPrefillName(null)
+            setDragPrefillNotes(null)
           }}
         />
       )}

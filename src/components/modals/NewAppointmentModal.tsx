@@ -51,11 +51,16 @@ export function NewAppointmentModal({
   slot,
   isGestorAggregate,
   prefillClientName,
+  prefillNotes,
   onClose,
 }: {
   slot: NewApptSlot
   isGestorAggregate: boolean
   prefillClientName?: string
+  /** Carries a Lista HOT lead's phone/source/características into the new
+   * appointment's notes, so that info doesn't get lost once it turns into a
+   * calendar event — editable here before saving, same as everything else. */
+  prefillNotes?: string
   onClose: () => void
 }) {
   const { profile } = useAuth()
@@ -71,6 +76,7 @@ export function NewAppointmentModal({
   const [inviteManager, setInviteManager] = useState(false)
   const [liderBusy, setLiderBusy] = useState(false)
   const [clientName, setClientName] = useState(prefillClientName ?? '')
+  const [notes, setNotes] = useState(prefillNotes ?? '')
   const [anamnese, setAnamnese] = useState<Anamnese>({})
   const [showAnamnese, setShowAnamnese] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -151,7 +157,7 @@ export function NewAppointmentModal({
           product: null,
           capital_segurado: null,
           recommendations: 0,
-          notes: null,
+          notes: notes.trim() || null,
           policy_delivered: null,
           fechamento_agendado: false,
           linked_appointment_id: null,
@@ -365,6 +371,16 @@ export function NewAppointmentModal({
         placeholder={type === 'evento' ? 'Observação (opcional)' : 'Nome do cliente'}
         className="w-full border border-[#D8D5CD] rounded-lg px-3.5 py-2.5 text-sm mb-4"
       />
+
+      {type !== 'evento' && (
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Informações importantes sobre o cliente (opcional)"
+          rows={2}
+          className="w-full border border-[#D8D5CD] rounded-lg px-3.5 py-2.5 text-sm mb-4 resize-none"
+        />
+      )}
 
       {type === 'abordagem' && (
         <div className="mb-4">

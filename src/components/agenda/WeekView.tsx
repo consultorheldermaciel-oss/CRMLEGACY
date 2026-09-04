@@ -8,6 +8,7 @@ import {
   agendaSlots,
   apptColor,
   apptSpan,
+  decodeHotLeadDrag,
   minutesToTime,
   timeToMinutes,
 } from '../../lib/domain'
@@ -37,7 +38,7 @@ export function WeekView({
   onSlotClick: (date: string, time: string) => void
   onConflict: (appt: Appointment) => void
   onOpenSlotChooser: (ids: string[]) => void
-  onScheduleLead?: (name: string, date: string, time: string) => void
+  onScheduleLead?: (name: string, notes: string, date: string, time: string) => void
   onEmptySlotClickGestor?: (date: string, time: string) => void
 }) {
   const { updateAppointment } = useCrm()
@@ -69,9 +70,10 @@ export function WeekView({
   function handleDrop(e: React.DragEvent, date: string, time: string) {
     e.preventDefault()
     setDragOverKey(null)
-    const leadName = e.dataTransfer.getData(HOT_LEAD_DRAG_TYPE)
-    if (leadName && onScheduleLead) {
-      onScheduleLead(leadName, date, time)
+    const leadRaw = e.dataTransfer.getData(HOT_LEAD_DRAG_TYPE)
+    const lead = leadRaw ? decodeHotLeadDrag(leadRaw) : null
+    if (lead && onScheduleLead) {
+      onScheduleLead(lead.name, lead.notes, date, time)
       return
     }
     const apptId = e.dataTransfer.getData('text/plain')

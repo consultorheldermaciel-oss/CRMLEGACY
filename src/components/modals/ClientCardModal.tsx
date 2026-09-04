@@ -340,6 +340,17 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         )}
       </div>
 
+      <div className="mb-4 no-print">
+        <div className="text-[11px] font-bold text-text-muted tracking-wide mb-1.5">📋 INFORMAÇÕES / OBSERVAÇÕES</div>
+        <textarea
+          defaultValue={appt.notes ?? ''}
+          onBlur={(e) => updateAppointment(appt.id, { notes: e.target.value.trim() || null })}
+          placeholder="Telefone, fonte, características importantes sobre o cliente…"
+          rows={2}
+          className="w-full border border-[#D8D5CD] rounded-lg px-2.5 py-2 text-[12.5px] resize-none"
+        />
+      </div>
+
       <div className="flex items-center gap-2 mb-4 no-print">
         <span className="text-[12.5px] font-semibold text-text-muted">🎗️ Recomendações conseguidas:</span>
         <button

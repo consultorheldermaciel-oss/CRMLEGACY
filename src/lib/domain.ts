@@ -27,6 +27,30 @@ export const AGENDA_SLOT_MINUTES = 30
 /** Custom drag-data MIME type for dragging a Lista HOT lead onto an agenda slot. */
 export const HOT_LEAD_DRAG_TYPE = 'application/x-legacy-hotlead'
 
+export interface HotLeadDragPayload {
+  name: string
+  notes: string
+}
+
+export function encodeHotLeadDrag(payload: HotLeadDragPayload): string {
+  return JSON.stringify(payload)
+}
+
+/** Tolerates older/plain-text drag payloads (just the name, no notes) so a
+ * stale cached build dragging into a fresh one still degrades gracefully. */
+export function decodeHotLeadDrag(raw: string): HotLeadDragPayload | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed.name === 'string') {
+      return { name: parsed.name, notes: typeof parsed.notes === 'string' ? parsed.notes : '' }
+    }
+  } catch {
+    // not JSON — fall through to treating it as a bare name
+  }
+  return { name: raw, notes: '' }
+}
+
 /** Appointments for the same client are only linked by consultant_id + a
  * normalized client name — there's no shared client id until they're
  * promoted to a real Carteira record. */
