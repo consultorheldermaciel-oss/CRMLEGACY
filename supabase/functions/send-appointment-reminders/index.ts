@@ -134,8 +134,11 @@ Deno.serve(async (req) => {
     .eq('status', 'agendado')
   if (error) return json({ error: error.message }, 500)
 
+  // Each of these three checks (X-minutes-before reminder, manager alert,
+  // self-report divergence) is independent — none of them may early-return
+  // the whole function, or it skips the other two whenever this particular
+  // one has nothing to do (the common case on any given minute).
   const upcoming = (appts ?? []).filter((a) => apptInstant(a.date, a.time) > now)
-  if (upcoming.length === 0) return json({ ok: true, sent: 0 })
 
   const consultantIds = [...new Set(upcoming.map((a) => a.consultant_id))]
   const { data: profiles } = await admin
@@ -148,7 +151,6 @@ Deno.serve(async (req) => {
     const lead = (profileById.get(a.consultant_id)?.notify_lead_minutes as number | undefined) ?? 30
     return apptInstant(a.date, a.time) - now <= lead * 60_000
   })
-  if (due.length === 0) return json({ ok: true, sent: 0 })
 
   let sent = 0
   for (const appt of due) {
