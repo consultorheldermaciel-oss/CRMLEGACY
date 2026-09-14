@@ -8,6 +8,7 @@ import { Avatar } from './ui/Avatar'
 import { computeBirthdayReminders } from '../lib/birthdays'
 import { CONSULTANT_COLOR_SWATCHES, isManagerRole } from '../lib/types'
 import { usePendingInviteCount } from './PendingInvitesPanel'
+import { PendingInvitesModal } from './modals/PendingInvitesModal'
 
 function todayStr() {
   const d = new Date()
@@ -21,6 +22,7 @@ export function Header() {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [colorBusy, setColorBusy] = useState(false)
   const [colorError, setColorError] = useState<string | null>(null)
+  const [invitesOpen, setInvitesOpen] = useState(false)
   const pendingInviteCount = usePendingInviteCount()
 
   if (!profile) return null
@@ -188,6 +190,22 @@ export function Header() {
               </button>
             )}
 
+            {isGestor && (
+              <button
+                type="button"
+                onClick={() => setInvitesOpen(true)}
+                className="relative bg-white/10 text-white border border-white/25 rounded-lg w-[38px] h-[38px] flex items-center justify-center text-base hover:bg-white/20"
+                title="Convites pendentes"
+              >
+                ⭐
+                {pendingInviteCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-[#D64545] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 border-2 border-[#0B2D5B]">
+                    {pendingInviteCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setScreen('lembretes')}
@@ -247,6 +265,8 @@ export function Header() {
           </button>
         ))}
       </div>
+
+      {invitesOpen && <PendingInvitesModal onClose={() => setInvitesOpen(false)} />}
     </>
   )
 }

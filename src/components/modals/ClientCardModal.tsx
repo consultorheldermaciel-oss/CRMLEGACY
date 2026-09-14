@@ -48,8 +48,18 @@ function googleCalendarUrl(appt: Appointment) {
 
 export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose: () => void }) {
   const { profile } = useAuth()
-  const { consultants, appointments, clients, updateAppointment, deleteAppointment, createAppointment, createClient, updateClient, createPolicy } =
-    useCrm()
+  const {
+    consultants,
+    appointments,
+    clients,
+    updateAppointment,
+    deleteAppointment,
+    createAppointment,
+    createClient,
+    updateClient,
+    createPolicy,
+    checkLiderBusy,
+  } = useCrm()
   const canDelete = (profile && isManagerRole(profile.role)) || appt.created_by === profile?.id
 
   // This appointment's own ADN can be empty if it was booked before we
@@ -250,6 +260,21 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   async function confirmPolicyNotClosed() {
     setActionError(null)
     await updateAppointment(appt.id, { policy_closed: false })
+  }
+
+  async function toggleWantsManager() {
+    setActionError(null)
+    if (appt.wants_manager) {
+      await updateAppointment(appt.id, { wants_manager: false, manager_response: null })
+      return
+    }
+    const hour = Number(appt.time.split(':')[0])
+    const busy = await checkLiderBusy(appt.date, hour, appt.duration, appt.consultant_id)
+    if (busy) {
+      setActionError('Não dá pra convidar o líder — ele já tem outro compromisso nesse horário.')
+      return
+    }
+    await updateAppointment(appt.id, { wants_manager: true, manager_response: 'pending', manager_notified: false })
   }
 
   async function saveAnamnese() {
@@ -513,17 +538,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
             📅 Alterar data/horário
           </button>
         )}
-        <button
-          type="button"
-          onClick={() =>
-            updateAppointment(appt.id, {
-              wants_manager: !appt.wants_manager,
-              manager_response: !appt.wants_manager ? 'pending' : null,
-              ...(!appt.wants_manager ? { manager_notified: false } : {}),
-            })
-          }
-          className="bg-transparent border-none p-0 text-navy"
-        >
+        <button type="button" onClick={toggleWantsManager} className="bg-transparent border-none p-0 text-navy">
           {appt.wants_manager ? '❌ Remover líder deste agendamento' : '⭐ Chamar o líder de unidade'}
         </button>
         {canDelete && (

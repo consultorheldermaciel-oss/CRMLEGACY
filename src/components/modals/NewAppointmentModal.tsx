@@ -92,9 +92,11 @@ export function NewAppointmentModal({
   // A consultor's client never sees another consultor's appointments (by
   // design), so we can't tell client-side if the lider is already booked at
   // this slot. lider_busy_at() answers just that yes/no, without leaking
-  // whose appointment it is.
+  // whose appointment it is. Checked regardless of whether "convidar o
+  // líder" is ticked yet, so the checkbox can be disabled outright instead
+  // of just warning after the fact.
   useEffect(() => {
-    if (!inviteManager || isGestorAggregate) {
+    if (isGestorAggregate) {
       setLiderBusy(false)
       return
     }
@@ -102,13 +104,15 @@ export function NewAppointmentModal({
     const hour = allDay ? AGENDA_START_HOUR : Math.floor(timeToMinutes(time) / 60)
     const dur = allDay ? AGENDA_END_HOUR - AGENDA_START_HOUR : duration
     checkLiderBusy(date, hour, dur, slot.consultantIds[0]).then((busy) => {
-      if (!cancelled) setLiderBusy(busy)
+      if (cancelled) return
+      setLiderBusy(busy)
+      if (busy) setInviteManager(false)
     })
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inviteManager, isGestorAggregate, date, time, allDay, duration, slot.consultantIds])
+  }, [isGestorAggregate, date, time, allDay, duration, slot.consultantIds])
 
   if (!profile) return null
 
@@ -134,7 +138,7 @@ export function NewAppointmentModal({
     setSaving(true)
     setSaveError(false)
     const kind = type === 'evento' ? (eventKind === 'Outro' ? eventOther || 'Outro' : eventKind) : null
-    const wantsManager = type === 'evento' && kind?.includes('líder') ? true : inviteManager
+    const wantsManager = (type === 'evento' && kind?.includes('líder') ? true : inviteManager) && !liderBusy
     const dates = repeatWeekly ? weeklyOccurrences(date) : [date]
     let allOk = true
     for (const consultantId of slot.consultantIds) {
@@ -355,13 +359,18 @@ export function NewAppointmentModal({
 
       {!isGestorAggregate && (
         <>
-          <label className="flex items-center gap-2 text-[13px] mb-2">
-            <input type="checkbox" checked={inviteManager} onChange={(e) => setInviteManager(e.target.checked)} />
+          <label className="flex items-center gap-2 text-[13px] mb-2" style={{ opacity: liderBusy ? 0.5 : 1 }}>
+            <input
+              type="checkbox"
+              checked={inviteManager}
+              disabled={liderBusy}
+              onChange={(e) => setInviteManager(e.target.checked)}
+            />
             Convidar o líder de unidade para participar
           </label>
           {liderBusy && (
             <div className="bg-[#FBE7E7] text-[#B23030] rounded-lg px-3 py-2 text-[12.5px] font-semibold mb-4">
-              ⚠️ O líder já está comprometido nesse horário e pode não conseguir participar.
+              ❌ Não dá pra convidar o líder — ele já tem outro compromisso nesse horário.
             </div>
           )}
         </>
