@@ -35,6 +35,7 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
       time: allDay ? `${String(AGENDA_START_HOUR).padStart(2, '0')}:00` : `${String(hour).padStart(2, '0')}:00`,
       status: 'agendado',
       wants_manager: false,
+      manager_response: null,
       locked_by_lider: true,
       anamnese: {},
       policy_closed: null,

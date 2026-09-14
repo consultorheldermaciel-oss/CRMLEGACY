@@ -110,6 +110,10 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
     : undefined
   const linkedEntrega = appointments.find((a) => a.type === 'entrega' && a.linked_appointment_id === appt.id)
   const showAgendarEntregaButton = appt.type === 'fechamento' && !!appt.policy_closed && !linkedEntrega
+  // Only a líder/diretor sees the Aceitar/Recusar buttons — the requesting
+  // consultor only ever sees the read-only status badge above.
+  const isManagerAcceptor =
+    !!profile && isManagerRole(profile.role) && appt.wants_manager && (appt.manager_response === 'pending' || !appt.manager_response)
 
   const sections = buildAnamneseSections(effectiveAnamnese, appt.premium, appt.product)
 
@@ -136,6 +140,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       time,
       status: 'agendado',
       wants_manager: false,
+      manager_response: null,
       locked_by_lider: appt.locked_by_lider,
       anamnese: appt.anamnese,
       policy_closed: null,
@@ -169,6 +174,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       time,
       status: 'agendado',
       wants_manager: false,
+      manager_response: null,
       locked_by_lider: appt.locked_by_lider,
       anamnese: appt.anamnese,
       policy_closed: appt.policy_closed,
@@ -338,12 +344,46 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: sc.bg, color: sc.color }}>
           {statusLabel(appt.status)}
         </span>
-        {appt.wants_manager && (
+        {appt.wants_manager && appt.manager_response === 'accepted' && (
+          <span className="text-white text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#1E7A46]">
+            ✅ Líder confirmou presença
+          </span>
+        )}
+        {appt.wants_manager && appt.manager_response === 'declined' && (
+          <span className="text-white text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#B23030]">
+            ❌ Líder não poderá comparecer
+          </span>
+        )}
+        {appt.wants_manager && (appt.manager_response === 'pending' || !appt.manager_response) && (
           <span className="text-white text-[11px] font-bold px-2.5 py-1 rounded-full bg-gold">
-            ⭐ líder de unidade solicitado
+            ⏳ Convite ao líder pendente
           </span>
         )}
       </div>
+
+      {isManagerAcceptor && (
+        <div className="bg-[#FCEFD9] rounded-xl p-3.5 mb-4 no-print flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-[12.5px] font-semibold text-[#9C6B0A]">
+            ⭐ {consultant?.name.split(' ')[0] ?? 'O consultor'} solicitou sua presença. Você vai?
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => updateAppointment(appt.id, { manager_response: 'accepted' })}
+              className="bg-[#1E7A46] text-white border-none rounded-lg px-3 py-1.5 text-[12.5px] font-bold"
+            >
+              ✅ Aceitar
+            </button>
+            <button
+              type="button"
+              onClick={() => updateAppointment(appt.id, { manager_response: 'declined' })}
+              className="bg-[#B23030] text-white border-none rounded-lg px-3 py-1.5 text-[12.5px] font-bold"
+            >
+              ❌ Recusar
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mb-4 no-print">
         <div className="text-[11px] font-bold text-text-muted tracking-wide mb-1.5">📋 INFORMAÇÕES / OBSERVAÇÕES</div>
@@ -478,6 +518,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
           onClick={() =>
             updateAppointment(appt.id, {
               wants_manager: !appt.wants_manager,
+              manager_response: !appt.wants_manager ? 'pending' : null,
               ...(!appt.wants_manager ? { manager_notified: false } : {}),
             })
           }

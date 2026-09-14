@@ -150,6 +150,7 @@ export function NewAppointmentModal({
           time: allDay ? `${pad2(AGENDA_START_HOUR)}:00` : time,
           status: 'agendado',
           wants_manager: wantsManager,
+          manager_response: wantsManager ? 'pending' : null,
           locked_by_lider: isLiderCreator,
           anamnese: type === 'abordagem' ? anamnese : priorAnamneseFor(consultantId),
           policy_closed: null,

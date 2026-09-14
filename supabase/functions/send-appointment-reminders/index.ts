@@ -207,8 +207,8 @@ Deno.serve(async (req) => {
 
       if (managerId) {
         const [y, m, d] = appt.date.split('-')
-        const title = `⭐ ${owner?.name?.split(' ')[0] ?? 'Um consultor'} chamou você`
-        const body = `${TYPE_LABELS[appt.type] ?? appt.type} com ${appt.client_name} — ${d}/${m}/${y} às ${appt.time}`
+        const title = `⭐ Convite de ${owner?.name?.split(' ')[0] ?? 'um consultor'}`
+        const body = `${TYPE_LABELS[appt.type] ?? appt.type} com ${appt.client_name} — ${d}/${m}/${y} às ${appt.time}. Toque para aceitar ou recusar.`
         await pushToProfile(admin, managerId, title, body)
 
         const managerProfile = managerById.get(managerId)

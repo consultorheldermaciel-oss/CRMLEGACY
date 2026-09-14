@@ -122,6 +122,7 @@ export interface Appointment {
   time: string // HH:00
   status: AppointmentStatus
   wants_manager: boolean
+  manager_response: 'pending' | 'accepted' | 'declined' | null
   locked_by_lider: boolean
   anamnese: Anamnese
   policy_closed: boolean | null
