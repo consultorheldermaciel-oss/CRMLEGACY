@@ -96,13 +96,19 @@ async function sendWhatsApp(toPhone: string, title: string, clientName: string) 
 // deno-lint-ignore no-explicit-any
 async function pushToProfile(admin: any, profileId: string, title: string, body: string) {
   const { data: subs } = await admin.from('push_subscriptions').select('id, endpoint, p256dh, auth').eq('consultant_id', profileId)
-  if (!subs || subs.length === 0) return
+  if (!subs || subs.length === 0) {
+    console.log(`pushToProfile: no subscription registered for profile ${profileId}`)
+    return
+  }
   const payload = JSON.stringify({ title, body, url: '/' })
   for (const sub of subs) {
     try {
       await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload)
+      console.log(`pushToProfile: sent ok to ${sub.endpoint}`)
     } catch (err) {
       const statusCode = (err as { statusCode?: number })?.statusCode
+      const respBody = (err as { body?: string })?.body
+      console.error(`pushToProfile: send failed for ${sub.endpoint} — status ${statusCode} — body: ${respBody} — err: ${err}`)
       if (statusCode === 404 || statusCode === 410) {
         await admin.from('push_subscriptions').delete().eq('id', sub.id)
       }
