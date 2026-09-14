@@ -7,6 +7,7 @@ import { LogoMark } from './ui/LogoMark'
 import { Avatar } from './ui/Avatar'
 import { computeBirthdayReminders } from '../lib/birthdays'
 import { CONSULTANT_COLOR_SWATCHES, isManagerRole } from '../lib/types'
+import { usePendingInviteCount } from './PendingInvitesPanel'
 
 function todayStr() {
   const d = new Date()
@@ -20,6 +21,7 @@ export function Header() {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [colorBusy, setColorBusy] = useState(false)
   const [colorError, setColorError] = useState<string | null>(null)
+  const pendingInviteCount = usePendingInviteCount()
 
   if (!profile) return null
 
@@ -44,7 +46,10 @@ export function Header() {
   const todayBirthdays = birthdayReminders.filter((r) => r.date === today)
   const todayReminders = [...todayManualReminders, ...todayBirthdays]
   const reminderCount =
-    reminders.filter((r) => !dismissedReminderIds.has(r.id)).length + todayBirthdays.length + pendingTaskCount
+    reminders.filter((r) => !dismissedReminderIds.has(r.id)).length +
+    todayBirthdays.length +
+    pendingTaskCount +
+    pendingInviteCount
 
   const liders = consultants.filter((c) => c.role === 'lider')
   const viewingConsultant = viewingId === 'gestor' ? null : consultants.find((c) => c.id === viewingId)

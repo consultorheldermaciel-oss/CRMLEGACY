@@ -4,12 +4,10 @@ import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { computeKpis, type Period } from '../lib/kpi'
 import { resolveViewScope } from '../lib/viewScope'
-import { apptTypeLabel } from '../lib/domain'
-import { dateLabel } from '../lib/format'
 import { AgendaPanel } from '../components/agenda/AgendaPanel'
 import { HotPhoneModal } from '../components/modals/HotPhoneModal'
 import { SelfReportModal } from '../components/modals/SelfReportModal'
-import { ClientCardModal } from '../components/modals/ClientCardModal'
+import { PendingInvitesPanel } from '../components/PendingInvitesPanel'
 
 const PERIODS: [Period, string][] = [
   ['dia', 'Dia'],
@@ -38,7 +36,7 @@ function PeriodSelector({ period, onChange }: { period: Period; onChange: (p: Pe
 
 export function DashboardPage() {
   const { profile } = useAuth()
-  const { consultants, appointments, updateAppointment } = useCrm()
+  const { consultants, appointments } = useCrm()
   const { viewingId } = useUi()
   // Independent from agendaPeriod on purpose — picking a period for the KPI
   // numbers shouldn't jump the calendar below to match, and vice versa.
@@ -46,21 +44,11 @@ export function DashboardPage() {
   const [agendaPeriod, setAgendaPeriod] = useState<Period>('mes')
   const [hotPhoneOpen, setHotPhoneOpen] = useState(false)
   const [selfReportOpen, setSelfReportOpen] = useState(false)
-  const [inviteApptId, setInviteApptId] = useState<string | null>(null)
 
   const { isGestorView, team, memberIds } = resolveViewScope(consultants, viewingId)
   const scopeConsultants = isGestorView ? team : team.filter((c) => c.id === viewingId)
   const scopeAppointments = memberIds ? appointments.filter((a) => memberIds.includes(a.consultant_id)) : appointments
   const kpis = computeKpis(scopeAppointments, scopeConsultants, kpiPeriod, new Date())
-
-  // In-app fallback for the "⭐ Chamar o líder" invite: shows up here
-  // regardless of whether the push notification actually arrived, so the
-  // líder always has somewhere to see and act on pending invites.
-  const pendingInvites = isGestorView
-    ? scopeAppointments.filter((a) => a.wants_manager && (a.manager_response === 'pending' || !a.manager_response))
-    : []
-  const consultantById = new Map(consultants.map((c) => [c.id, c]))
-  const invitedAppt = inviteApptId ? appointments.find((a) => a.id === inviteApptId) ?? null : null
 
   const kpiSection = isGestorView ? (
     <div className="grid gap-3.5 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
@@ -129,50 +117,7 @@ export function DashboardPage() {
         )}
       </div>
 
-      {pendingInvites.length > 0 && (
-        <div className="bg-[#FCEFD9] border border-[#F0D9A6] rounded-2xl p-4.5 mb-6">
-          <div className="font-heading font-bold text-[15px] mb-3 text-[#9C6B0A]">
-            ⭐ Convites pendentes ({pendingInvites.length})
-          </div>
-          <div className="flex flex-col gap-2.5">
-            {pendingInvites.map((a) => (
-              <div
-                key={a.id}
-                className="bg-white rounded-xl px-3.5 py-3 flex items-center justify-between gap-3 flex-wrap"
-              >
-                <button
-                  type="button"
-                  onClick={() => setInviteApptId(a.id)}
-                  className="bg-transparent border-none p-0 text-left flex-1 min-w-[180px]"
-                >
-                  <div className="text-[13px] font-semibold">
-                    {consultantById.get(a.consultant_id)?.name.split(' ')[0] ?? 'Consultor'} · {a.client_name}
-                  </div>
-                  <div className="text-[11.5px] text-text-faint">
-                    {apptTypeLabel(a)} · {dateLabel(a.date)} às {a.time}
-                  </div>
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => updateAppointment(a.id, { manager_response: 'accepted' })}
-                    className="bg-[#1E7A46] text-white border-none rounded-lg px-3 py-1.5 text-[12px] font-bold"
-                  >
-                    ✅ Aceitar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateAppointment(a.id, { manager_response: 'declined' })}
-                    className="bg-[#B23030] text-white border-none rounded-lg px-3 py-1.5 text-[12px] font-bold"
-                  >
-                    ❌ Recusar
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <PendingInvitesPanel />
 
       {kpiSection}
 
@@ -183,7 +128,6 @@ export function DashboardPage() {
 
       {hotPhoneOpen && <HotPhoneModal team={team} onClose={() => setHotPhoneOpen(false)} />}
       {selfReportOpen && <SelfReportModal onClose={() => setSelfReportOpen(false)} />}
-      {invitedAppt && <ClientCardModal appt={invitedAppt} onClose={() => setInviteApptId(null)} />}
     </div>
   )
 }

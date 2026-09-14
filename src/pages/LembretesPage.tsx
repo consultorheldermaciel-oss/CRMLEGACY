@@ -8,6 +8,7 @@ import { computeBirthdayReminders } from '../lib/birthdays'
 import { isManagerRole } from '../lib/types'
 import { resolveViewScope } from '../lib/viewScope'
 import { getExistingPushSubscription, isPushSupported, subscribeToPush, unsubscribeFromPush } from '../lib/push'
+import { PendingInvitesPanel } from '../components/PendingInvitesPanel'
 
 const LEAD_OPTIONS = [10, 15, 30, 60, 120]
 
@@ -56,6 +57,7 @@ export function LembretesPage() {
 
   return (
     <div className="flex flex-col gap-5 max-w-[640px]">
+      <PendingInvitesPanel />
       <NotificationsCard />
 
       <div className="bg-card border border-border rounded-2xl p-5">
