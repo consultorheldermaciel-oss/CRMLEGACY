@@ -41,6 +41,7 @@ export function BlockAgendaModal({ onClose }: { onClose: () => void }) {
       premium: null,
       product: null,
       capital_segurado: null,
+      capital_segurado_ah: null,
       recommendations: 0,
       notes: null,
       policy_delivered: null,

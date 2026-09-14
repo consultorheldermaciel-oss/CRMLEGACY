@@ -156,6 +156,7 @@ export function NewAppointmentModal({
           premium: null,
           product: null,
           capital_segurado: null,
+          capital_segurado_ah: null,
           recommendations: 0,
           notes: notes.trim() || null,
           policy_delivered: null,

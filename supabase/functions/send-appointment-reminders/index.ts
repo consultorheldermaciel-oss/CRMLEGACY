@@ -1,11 +1,18 @@
 // Edge Function: send-appointment-reminders
 // Runs on a schedule (a Supabase Cron Job hitting this URL every minute) and
-// alerts each consultor whose next appointment just entered their
-// configured lead time (profiles.notify_lead_minutes, default 30) — as a
-// browser/phone push notification, and optionally as a WhatsApp message for
-// consultores who opted into that channel (profiles.notify_whatsapp). Acts
-// on behalf of the whole team via the service role key — there's no single
-// authenticated caller, since this is only ever invoked by the scheduler.
+// does three independent things:
+//   1. Alerts each consultor whose next appointment just entered their
+//      configured lead time (profiles.notify_lead_minutes, default 30).
+//   2. Alerts the líder (profiles.manager_id of the appointment's owner) as
+//      soon as a consultor flags `wants_manager` ("⭐ Chamar o líder de
+//      unidade") — independent of the appointment's start time, since this
+//      is "you were called into something", not a start-time reminder.
+//   3. Alerts the líder when a consultor's weekly self-report (migration
+//      0026) diverges from what the system computed automatically.
+// All three are push notification, plus optionally WhatsApp for whoever
+// opted into that channel (profiles.notify_whatsapp). Acts on behalf of the
+// whole team via the service role key — there's no single authenticated
+// caller, since this is only ever invoked by the scheduler.
 // Deploy: supabase functions deploy send-appointment-reminders
 //
 // Required secrets (Project Settings → Edge Functions → Secrets, or
@@ -82,6 +89,27 @@ async function sendWhatsApp(toPhone: string, title: string, clientName: string) 
   }).catch((err) => console.error('WhatsApp send failed', err))
 }
 
+// Sends a push notification to every device a profile has registered
+// (push_subscriptions.consultant_id — despite the column name, it's just
+// "which profile owns this subscription", used for líderes too), pruning
+// any subscription the push service reports as gone (404/410).
+// deno-lint-ignore no-explicit-any
+async function pushToProfile(admin: any, profileId: string, title: string, body: string) {
+  const { data: subs } = await admin.from('push_subscriptions').select('id, endpoint, p256dh, auth').eq('consultant_id', profileId)
+  if (!subs || subs.length === 0) return
+  const payload = JSON.stringify({ title, body, url: '/' })
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload)
+    } catch (err) {
+      const statusCode = (err as { statusCode?: number })?.statusCode
+      if (statusCode === 404 || statusCode === 410) {
+        await admin.from('push_subscriptions').delete().eq('id', sub.id)
+      }
+    }
+  }
+}
+
 Deno.serve(async (req) => {
   const cronSecret = Deno.env.get('CRON_SECRET')
   if (cronSecret && req.headers.get('x-cron-secret') !== cronSecret) {
@@ -125,28 +153,7 @@ Deno.serve(async (req) => {
   let sent = 0
   for (const appt of due) {
     const title = `${TYPE_LABELS[appt.type] ?? appt.type} às ${appt.time}`
-
-    const { data: subs } = await admin
-      .from('push_subscriptions')
-      .select('id, endpoint, p256dh, auth')
-      .eq('consultant_id', appt.consultant_id)
-
-    if (subs && subs.length > 0) {
-      const payload = JSON.stringify({ title, body: appt.client_name, url: '/' })
-      for (const sub of subs) {
-        try {
-          await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-            payload,
-          )
-        } catch (err) {
-          const statusCode = (err as { statusCode?: number })?.statusCode
-          if (statusCode === 404 || statusCode === 410) {
-            await admin.from('push_subscriptions').delete().eq('id', sub.id)
-          }
-        }
-      }
-    }
+    await pushToProfile(admin, appt.consultant_id, title, appt.client_name)
 
     const consultantProfile = profileById.get(appt.consultant_id)
     if (consultantProfile?.notify_whatsapp && consultantProfile.phone) {
@@ -157,5 +164,105 @@ Deno.serve(async (req) => {
     sent++
   }
 
-  return json({ ok: true, sent })
+  // Manager ("líder") alert — fires once as soon as `wants_manager` is
+  // noticed, regardless of how far away the appointment is.
+  const { data: managerPending, error: managerError } = await admin
+    .from('appointments')
+    .select('id, consultant_id, client_name, type, date, time')
+    .eq('wants_manager', true)
+    .eq('manager_notified', false)
+    .eq('status', 'agendado')
+  if (managerError) return json({ error: managerError.message }, 500)
+
+  let managerSent = 0
+  if (managerPending && managerPending.length > 0) {
+    const ownerIds = [...new Set(managerPending.map((a) => a.consultant_id))]
+    const { data: owners } = await admin.from('profiles').select('id, name, manager_id').in('id', ownerIds)
+    const ownerById = new Map((owners ?? []).map((p) => [p.id as string, p]))
+
+    const managerIds = [
+      ...new Set(
+        managerPending
+          .map((a) => ownerById.get(a.consultant_id)?.manager_id as string | null | undefined)
+          .filter((id): id is string => !!id),
+      ),
+    ]
+    const { data: managers } = await admin
+      .from('profiles')
+      .select('id, notify_whatsapp, phone')
+      .in('id', managerIds)
+    const managerById = new Map((managers ?? []).map((p) => [p.id as string, p]))
+
+    for (const appt of managerPending) {
+      const owner = ownerById.get(appt.consultant_id)
+      const managerId = owner?.manager_id as string | null | undefined
+
+      if (managerId) {
+        const [y, m, d] = appt.date.split('-')
+        const title = `⭐ ${owner?.name?.split(' ')[0] ?? 'Um consultor'} chamou você`
+        const body = `${TYPE_LABELS[appt.type] ?? appt.type} com ${appt.client_name} — ${d}/${m}/${y} às ${appt.time}`
+        await pushToProfile(admin, managerId, title, body)
+
+        const managerProfile = managerById.get(managerId)
+        if (managerProfile?.notify_whatsapp && managerProfile.phone) {
+          await sendWhatsApp(managerProfile.phone as string, title, body)
+        }
+        managerSent++
+      }
+
+      await admin.from('appointments').update({ manager_notified: true }).eq('id', appt.id)
+    }
+  }
+
+  // Self-report divergence alert — the consultor's weekly self-report
+  // (migration 0026) didn't match what buildWeeklyReport computed from their
+  // own appointments; let the líder know.
+  const { data: divergentReports, error: divergenceError } = await admin
+    .from('weekly_self_reports')
+    .select('id, consultant_id, week_start, divergence_details')
+    .eq('has_divergence', true)
+    .eq('manager_notified', false)
+  if (divergenceError) return json({ error: divergenceError.message }, 500)
+
+  let divergenceSent = 0
+  if (divergentReports && divergentReports.length > 0) {
+    const ownerIds = [...new Set(divergentReports.map((r) => r.consultant_id))]
+    const { data: owners } = await admin.from('profiles').select('id, name, manager_id').in('id', ownerIds)
+    const ownerById = new Map((owners ?? []).map((p) => [p.id as string, p]))
+
+    const managerIds = [
+      ...new Set(
+        divergentReports
+          .map((r) => ownerById.get(r.consultant_id)?.manager_id as string | null | undefined)
+          .filter((id): id is string => !!id),
+      ),
+    ]
+    const { data: managers } = await admin
+      .from('profiles')
+      .select('id, notify_whatsapp, phone')
+      .in('id', managerIds)
+    const managerById = new Map((managers ?? []).map((p) => [p.id as string, p]))
+
+    for (const report of divergentReports) {
+      const owner = ownerById.get(report.consultant_id)
+      const managerId = owner?.manager_id as string | null | undefined
+
+      if (managerId) {
+        const [y, m, d] = (report.week_start as string).split('-')
+        const title = `⚠️ Divergência no relatório de ${owner?.name?.split(' ')[0] ?? 'um consultor'}`
+        const body = (report.divergence_details as string) || `Semana de ${d}/${m}/${y} — confira o relatório semanal.`
+        await pushToProfile(admin, managerId, title, body)
+
+        const managerProfile = managerById.get(managerId)
+        if (managerProfile?.notify_whatsapp && managerProfile.phone) {
+          await sendWhatsApp(managerProfile.phone as string, title, body)
+        }
+        divergenceSent++
+      }
+
+      await admin.from('weekly_self_reports').update({ manager_notified: true }).eq('id', report.id)
+    }
+  }
+
+  return json({ ok: true, sent, managerSent, divergenceSent })
 })

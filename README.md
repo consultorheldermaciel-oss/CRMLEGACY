@@ -83,6 +83,30 @@ compromissos do dia — reaproveita os mesmos segredos de `send-appointment-remi
    URL dessa função, rodando **uma vez por dia às 09:00 UTC** (`0 9 * * *`) — isso equivale a 06:00 no horário de
    Brasília.
 
+### Alertas pro líder: "chamado" num agendamento e divergência no relatório
+
+A mesma Edge Function `send-appointment-reminders` também avisa o líder — via push e, se ativado, WhatsApp — em
+dois casos, além do lembrete de horário de cada consultor:
+
+- **Um consultor te chamou num agendamento** (botão "⭐ Chamar o líder de unidade" no card do cliente, ou a opção
+  de convidar o líder ao criar o agendamento) — o aviso dispara na próxima vez que o Cron Job rodar (em até 1
+  minuto), independente de quão longe está a data do compromisso.
+- **Divergência no relatório semanal do consultor** (seção abaixo) — quando o que o consultor digitou não bate
+  com o que o sistema calculou automaticamente pra aquela semana.
+
+Não precisa de nenhum segredo novo — reaproveita tudo que já está configurado acima. Só é preciso: rodar as
+migrations `0025_manager_notified.sql` e `0026_weekly_self_reports.sql`, e reimplantar (`deploy`) a função
+`send-appointment-reminders` de novo, já que o código dela mudou.
+
+### Relatório semanal do consultor (autorrelato)
+
+Na tela inicial (Dashboard), todo consultor tem o botão "📝 Meu relatório semanal", onde ele informa — pra
+qualquer semana, sempre de segunda a domingo — quantas apólices fechou, o prêmio anualizado, o capital segurado de
+morte (base) e o capital segurado AH (Acidentes e Saúde). Ao salvar, o sistema compara automaticamente com o que
+já está registrado nos agendamentos dele naquela semana; se dá diferença (apólices contando diferente, ou valores
+com mais de 5% de gap), o relatório fica marcado com "⚠️ divergência" pro líder ver dentro do "📊 Relatório
+semanal" (Equipe), e o líder é avisado pelo canal de notificações acima.
+
 ### Canal extra: WhatsApp (opcional, via Twilio)
 
 Além da notificação de tela, cada consultor pode ativar em Lembretes o mesmo lembrete por WhatsApp (precisa ter

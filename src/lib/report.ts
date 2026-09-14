@@ -1,5 +1,5 @@
 import type { Appointment, Profile } from './types'
-import { dstr } from './format'
+import { dstr, fmtBRL } from './format'
 
 export function mondayOf(d: Date): Date {
   const dt = new Date(d)
@@ -29,6 +29,7 @@ export interface WeeklyReportRow {
   apolicesFechadas: number
   valorApolices: number
   capitalSegurado: number
+  capitalSeguradoAh: number
 }
 
 export interface WeeklyReportTotals {
@@ -39,6 +40,7 @@ export interface WeeklyReportTotals {
   apolicesFechadas: number
   valorApolices: number
   capitalSegurado: number
+  capitalSeguradoAh: number
   premioMedio: number
 }
 
@@ -53,6 +55,7 @@ export interface WeeklyReportAverages {
   apolicesFechadas: number
   valorApolices: number
   capitalSegurado: number
+  capitalSeguradoAh: number
 }
 
 export function buildWeeklyReport(
@@ -74,6 +77,7 @@ export function buildWeeklyReport(
       apolicesFechadas: closed.length,
       valorApolices: closed.reduce((s, a) => s + (a.premium || 0), 0),
       capitalSegurado: closed.reduce((s, a) => s + (a.capital_segurado || 0), 0),
+      capitalSeguradoAh: closed.reduce((s, a) => s + (a.capital_segurado_ah || 0), 0),
     }
   })
 
@@ -86,6 +90,7 @@ export function buildWeeklyReport(
       apolicesFechadas: acc.apolicesFechadas + r.apolicesFechadas,
       valorApolices: acc.valorApolices + r.valorApolices,
       capitalSegurado: acc.capitalSegurado + r.capitalSegurado,
+      capitalSeguradoAh: acc.capitalSeguradoAh + r.capitalSeguradoAh,
     }),
     {
       abordagens: 0,
@@ -95,6 +100,7 @@ export function buildWeeklyReport(
       apolicesFechadas: 0,
       valorApolices: 0,
       capitalSegurado: 0,
+      capitalSeguradoAh: 0,
     },
   )
 
@@ -107,6 +113,7 @@ export function buildWeeklyReport(
     apolicesFechadas: headcount ? totals.apolicesFechadas / headcount : 0,
     valorApolices: headcount ? totals.valorApolices / headcount : 0,
     capitalSegurado: headcount ? totals.capitalSegurado / headcount : 0,
+    capitalSeguradoAh: headcount ? totals.capitalSeguradoAh / headcount : 0,
   }
 
   return {
@@ -127,7 +134,8 @@ const CSV_HEADERS = [
   'Recomendações (fechamento)',
   'Apólices fechadas',
   'Valor das apólices (R$)',
-  'Capital segurado (R$)',
+  'Capital segurado — morte (R$)',
+  'Capital segurado — AH (R$)',
 ]
 
 function csvCell(value: string | number): string {
@@ -163,6 +171,7 @@ export function weeklyReportCsv(
         r.apolicesFechadas,
         r.valorApolices,
         r.capitalSegurado,
+        r.capitalSeguradoAh,
       ]
         .map(csvCell)
         .join(';'),
@@ -176,6 +185,7 @@ export function weeklyReportCsv(
       totals.apolicesFechadas,
       totals.valorApolices,
       totals.capitalSegurado,
+      totals.capitalSeguradoAh,
     ]
       .map(csvCell)
       .join(';'),
@@ -188,6 +198,7 @@ export function weeklyReportCsv(
       round1(averages.apolicesFechadas),
       Math.round(averages.valorApolices),
       Math.round(averages.capitalSegurado),
+      Math.round(averages.capitalSeguradoAh),
     ]
       .map(csvCell)
       .join(';'),
@@ -206,4 +217,50 @@ export function downloadCsv(filename: string, csv: string) {
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+/** What the consultor typed into "Meu relatório semanal" (self-report). */
+export interface SelfReportInput {
+  apolicesCount: number
+  premioAnualizado: number
+  capitalSeguradoMorte: number
+  capitalSeguradoAh: number
+}
+
+export interface DivergenceResult {
+  hasDivergence: boolean
+  details: string
+}
+
+/** Relative difference between two numbers, floored at a R$1/unit absolute
+ * base so tiny values don't produce noisy 100% differences. */
+function relDiff(a: number, b: number): number {
+  const base = Math.max(Math.abs(a), Math.abs(b), 1)
+  return Math.abs(a - b) / base
+}
+
+// Money fields are self-typed by hand, so exact equality isn't realistic —
+// only flag it once the gap is big enough to actually mean something (more
+// than 5% off, or apólices count off by any amount, since that's a small
+// whole number the consultor should know exactly).
+const MONEY_DIVERGENCE_THRESHOLD = 0.05
+
+/** Compares what a consultor self-reported for the week against what the
+ * system computed automatically from their own appointments, and produces a
+ * human-readable summary of any mismatch — used to flag the líder. */
+export function compareSelfReport(self: SelfReportInput, computed: WeeklyReportRow): DivergenceResult {
+  const issues: string[] = []
+  if (self.apolicesCount !== computed.apolicesFechadas) {
+    issues.push(`Apólices: informou ${self.apolicesCount}, sistema tem ${computed.apolicesFechadas}`)
+  }
+  if (relDiff(self.premioAnualizado, computed.valorApolices) > MONEY_DIVERGENCE_THRESHOLD) {
+    issues.push(`Prêmio anualizado: informou ${fmtBRL(self.premioAnualizado)}, sistema tem ${fmtBRL(computed.valorApolices)}`)
+  }
+  if (relDiff(self.capitalSeguradoMorte, computed.capitalSegurado) > MONEY_DIVERGENCE_THRESHOLD) {
+    issues.push(`Capital segurado (base): informou ${fmtBRL(self.capitalSeguradoMorte)}, sistema tem ${fmtBRL(computed.capitalSegurado)}`)
+  }
+  if (relDiff(self.capitalSeguradoAh, computed.capitalSeguradoAh) > MONEY_DIVERGENCE_THRESHOLD) {
+    issues.push(`Capital segurado AH: informou ${fmtBRL(self.capitalSeguradoAh)}, sistema tem ${fmtBRL(computed.capitalSeguradoAh)}`)
+  }
+  return { hasDivergence: issues.length > 0, details: issues.join(' · ') }
 }

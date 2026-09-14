@@ -128,12 +128,14 @@ export interface Appointment {
   premium: number | null
   product: string | null
   capital_segurado: number | null
+  capital_segurado_ah: number | null
   recommendations: number
   notes: string | null
   policy_delivered: boolean | null
   fechamento_agendado: boolean
   linked_appointment_id: string | null
   reminder_sent: boolean
+  manager_notified: boolean
   created_at: string
   updated_at: string
 }
@@ -148,6 +150,21 @@ export interface Task {
   auto_kind: 'entrega' | 'recalibrar' | null
   auto_policy_id: string | null
   created_at: string
+}
+
+export interface WeeklySelfReport {
+  id: string
+  consultant_id: string
+  week_start: string // YYYY-MM-DD, always a Monday
+  apolices_count: number
+  premio_anualizado: number
+  capital_segurado_morte: number
+  capital_segurado_ah: number
+  has_divergence: boolean
+  divergence_details: string | null
+  manager_notified: boolean
+  submitted_at: string
+  updated_at: string
 }
 
 export interface Reminder {

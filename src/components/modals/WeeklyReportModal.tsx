@@ -11,10 +11,11 @@ function round1(n: number) {
 }
 
 export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose: () => void }) {
-  const { appointments } = useCrm()
+  const { appointments, selfReports } = useCrm()
   const [anchor, setAnchor] = useState(() => new Date())
   const { start, end, startDate, endDate } = weekRange(anchor)
   const { rows, totals, averages } = buildWeeklyReport(appointments, team, start, end)
+  const selfReportByConsultant = new Map(selfReports.filter((r) => r.week_start === start).map((r) => [r.consultant_id, r]))
 
   function shiftWeek(delta: number) {
     setAnchor((a) => {
@@ -69,25 +70,40 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
               <th className="text-right py-2 px-2 font-bold">Recomendações (fechamento)</th>
               <th className="text-right py-2 px-2 font-bold">Apólices fechadas</th>
               <th className="text-right py-2 px-2 font-bold">Valor das apólices</th>
-              <th className="text-right py-2 pl-2 font-bold">Capital segurado</th>
+              <th className="text-right py-2 px-2 font-bold">Capital segurado (morte)</th>
+              <th className="text-right py-2 pl-2 font-bold">Capital segurado (AH)</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {rows.map((r) => {
+              const self = selfReportByConsultant.get(r.consultantId)
+              return (
               <tr key={r.consultantId} className="border-b border-border">
-                <td className="py-2 pr-2 font-semibold">{r.consultantName}</td>
+                <td className="py-2 pr-2 font-semibold">
+                  {r.consultantName}
+                  {self?.has_divergence && (
+                    <span
+                      className="ml-1.5 inline-block text-[10px] font-bold text-[#9C6B0A] no-print"
+                      title={`Relatório do consultor divergiu do sistema: ${self.divergence_details ?? ''}`}
+                    >
+                      ⚠️ divergência
+                    </span>
+                  )}
+                </td>
                 <td className="text-right py-2 px-2">{r.abordagens}</td>
                 <td className="text-right py-2 px-2">{r.fechamentos}</td>
                 <td className="text-right py-2 px-2">{r.recomendacoesAbordagem}</td>
                 <td className="text-right py-2 px-2">{r.recomendacoesFechamento}</td>
                 <td className="text-right py-2 px-2">{r.apolicesFechadas}</td>
                 <td className="text-right py-2 px-2">{fmtBRL(r.valorApolices)}</td>
-                <td className="text-right py-2 pl-2">{fmtBRL(r.capitalSegurado)}</td>
+                <td className="text-right py-2 px-2">{fmtBRL(r.capitalSegurado)}</td>
+                <td className="text-right py-2 pl-2">{fmtBRL(r.capitalSeguradoAh)}</td>
               </tr>
-            ))}
+              )
+            })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-3 text-center text-text-faint">
+                <td colSpan={9} className="py-3 text-center text-text-faint">
                   Nenhum consultor na equipe.
                 </td>
               </tr>
@@ -102,7 +118,8 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
               <td className="text-right py-2 px-2">{totals.recomendacoesFechamento}</td>
               <td className="text-right py-2 px-2">{totals.apolicesFechadas}</td>
               <td className="text-right py-2 px-2">{fmtBRL(totals.valorApolices)}</td>
-              <td className="text-right py-2 pl-2">{fmtBRL(totals.capitalSegurado)}</td>
+              <td className="text-right py-2 px-2">{fmtBRL(totals.capitalSegurado)}</td>
+              <td className="text-right py-2 pl-2">{fmtBRL(totals.capitalSeguradoAh)}</td>
             </tr>
             <tr className="text-text-muted italic">
               <td className="py-2 pr-2">Média por consultor</td>
@@ -112,11 +129,12 @@ export function WeeklyReportModal({ team, onClose }: { team: Profile[]; onClose:
               <td className="text-right py-2 px-2">{round1(averages.recomendacoesFechamento)}</td>
               <td className="text-right py-2 px-2">{round1(averages.apolicesFechadas)}</td>
               <td className="text-right py-2 px-2">{fmtBRL(averages.valorApolices)}</td>
-              <td className="text-right py-2 pl-2">{fmtBRL(averages.capitalSegurado)}</td>
+              <td className="text-right py-2 px-2">{fmtBRL(averages.capitalSegurado)}</td>
+              <td className="text-right py-2 pl-2">{fmtBRL(averages.capitalSeguradoAh)}</td>
             </tr>
             <tr>
               <td className="py-2 pr-2 font-semibold">Prêmio médio por apólice fechada</td>
-              <td colSpan={7} className="text-right py-2 px-2 font-semibold">
+              <td colSpan={8} className="text-right py-2 px-2 font-semibold">
                 {fmtBRL(totals.premioMedio)}
               </td>
             </tr>

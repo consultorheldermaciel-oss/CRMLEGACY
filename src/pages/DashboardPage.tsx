@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { useCrm } from '../context/CrmContext'
 import { useUi } from '../context/UiContext'
 import { computeKpis, type Period } from '../lib/kpi'
 import { resolveViewScope } from '../lib/viewScope'
 import { AgendaPanel } from '../components/agenda/AgendaPanel'
 import { HotPhoneModal } from '../components/modals/HotPhoneModal'
+import { SelfReportModal } from '../components/modals/SelfReportModal'
 
 const PERIODS: [Period, string][] = [
   ['dia', 'Dia'],
@@ -32,6 +34,7 @@ function PeriodSelector({ period, onChange }: { period: Period; onChange: (p: Pe
 }
 
 export function DashboardPage() {
+  const { profile } = useAuth()
   const { consultants, appointments } = useCrm()
   const { viewingId } = useUi()
   // Independent from agendaPeriod on purpose — picking a period for the KPI
@@ -39,6 +42,7 @@ export function DashboardPage() {
   const [kpiPeriod, setKpiPeriod] = useState<Period>('mes')
   const [agendaPeriod, setAgendaPeriod] = useState<Period>('mes')
   const [hotPhoneOpen, setHotPhoneOpen] = useState(false)
+  const [selfReportOpen, setSelfReportOpen] = useState(false)
 
   const { isGestorView, team, memberIds } = resolveViewScope(consultants, viewingId)
   const scopeConsultants = isGestorView ? team : team.filter((c) => c.id === viewingId)
@@ -101,6 +105,15 @@ export function DashboardPage() {
             🔥 Hot Phone
           </button>
         )}
+        {profile?.role === 'consultor' && (
+          <button
+            type="button"
+            onClick={() => setSelfReportOpen(true)}
+            className="bg-navy text-white border-none rounded-lg px-3.5 py-2 text-[13px] font-bold whitespace-nowrap"
+          >
+            📝 Meu relatório semanal
+          </button>
+        )}
       </div>
 
       {kpiSection}
@@ -111,6 +124,7 @@ export function DashboardPage() {
       <AgendaPanel period={agendaPeriod} />
 
       {hotPhoneOpen && <HotPhoneModal team={team} onClose={() => setHotPhoneOpen(false)} />}
+      {selfReportOpen && <SelfReportModal onClose={() => setSelfReportOpen(false)} />}
     </div>
   )
 }

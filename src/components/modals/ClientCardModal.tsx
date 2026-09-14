@@ -85,6 +85,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
   const [selectedProduct, setSelectedProduct] = useState('')
   const [premiumInput, setPremiumInput] = useState('')
   const [capitalSeguradoInput, setCapitalSeguradoInput] = useState('')
+  const [capitalSeguradoAhInput, setCapitalSeguradoAhInput] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(appt.client_name)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -141,6 +142,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       premium: null,
       product: null,
       capital_segurado: null,
+      capital_segurado_ah: null,
       recommendations: 0,
       notes: null,
       policy_delivered: null,
@@ -173,6 +175,7 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
       premium: appt.premium,
       product: appt.product,
       capital_segurado: appt.capital_segurado,
+      capital_segurado_ah: appt.capital_segurado_ah,
       recommendations: 0,
       notes: null,
       policy_delivered: null,
@@ -194,11 +197,13 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
     const premium = parseCurrency(premiumInput)
     const product = selectedProduct || METLIFE_PRODUCT_LABELS[0]
     const capitalSegurado = capitalSeguradoInput ? parseCurrency(capitalSeguradoInput) : null
+    const capitalSeguradoAh = capitalSeguradoAhInput ? parseCurrency(capitalSeguradoAhInput) : null
     await updateAppointment(appt.id, {
       policy_closed: true,
       premium,
       product,
       capital_segurado: capitalSegurado,
+      capital_segurado_ah: capitalSeguradoAh,
     })
 
     let client = clients.find(
@@ -470,7 +475,12 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
         )}
         <button
           type="button"
-          onClick={() => updateAppointment(appt.id, { wants_manager: !appt.wants_manager })}
+          onClick={() =>
+            updateAppointment(appt.id, {
+              wants_manager: !appt.wants_manager,
+              ...(!appt.wants_manager ? { manager_notified: false } : {}),
+            })
+          }
           className="bg-transparent border-none p-0 text-navy"
         >
           {appt.wants_manager ? '❌ Remover líder deste agendamento' : '⭐ Chamar o líder de unidade'}
@@ -601,7 +611,13 @@ export function ClientCardModal({ appt, onClose }: { appt: Appointment; onClose:
             <input
               value={capitalSeguradoInput}
               onChange={(e) => setCapitalSeguradoInput(formatCurrencyTyped(e.target.value))}
-              placeholder="Capital segurado — capital de morte (R$)"
+              placeholder="Capital segurado — capital de morte / base (R$)"
+              className="border border-[#D8D5CD] rounded-lg px-3 py-2 text-[13px] flex-1 min-w-[180px]"
+            />
+            <input
+              value={capitalSeguradoAhInput}
+              onChange={(e) => setCapitalSeguradoAhInput(formatCurrencyTyped(e.target.value))}
+              placeholder="Capital segurado AH — acidentes e saúde (R$)"
               className="border border-[#D8D5CD] rounded-lg px-3 py-2 text-[13px] flex-1 min-w-[180px]"
             />
           </div>

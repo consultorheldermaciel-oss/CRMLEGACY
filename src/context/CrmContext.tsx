@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { supabase, functionErrorMessage } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { computeAutoCutucaoCandidates } from '../lib/autoCutucao'
-import type { Appointment, Client, Dependent, HotLead, Policy, Profile, Reminder, Task } from '../lib/types'
+import type { Appointment, Client, Dependent, HotLead, Policy, Profile, Reminder, Task, WeeklySelfReport } from '../lib/types'
+import { buildWeeklyReport, compareSelfReport, type SelfReportInput } from '../lib/report'
+import { dstr } from '../lib/format'
 
 interface CrmState {
   consultants: Profile[]
@@ -13,11 +15,12 @@ interface CrmState {
   clients: Client[]
   policies: Policy[]
   hotLeads: HotLead[]
+  selfReports: WeeklySelfReport[]
   dismissedReminderIds: Set<string>
   loading: boolean
   refresh: () => Promise<void>
   createAppointment: (
-    payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'reminder_sent'>,
+    payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'reminder_sent' | 'manager_notified'>,
   ) => Promise<Appointment | null>
   updateAppointment: (id: string, patch: Partial<Appointment>) => Promise<void>
   deleteAppointment: (id: string) => Promise<void>
@@ -69,6 +72,7 @@ interface CrmState {
   createHotLead: (payload: Omit<HotLead, 'id' | 'created_at'>) => Promise<HotLead | null>
   createHotLeadsBulk: (payload: Omit<HotLead, 'id' | 'created_at'>[]) => Promise<{ error: string | null; count: number }>
   removeHotLead: (id: string) => Promise<void>
+  submitSelfReport: (weekStart: string, input: SelfReportInput) => Promise<{ error: string | null; hasDivergence: boolean }>
 }
 
 const CrmContext = createContext<CrmState | undefined>(undefined)
@@ -83,13 +87,14 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>([])
   const [policies, setPolicies] = useState<Policy[]>([])
   const [hotLeads, setHotLeads] = useState<HotLead[]>([])
+  const [selfReports, setSelfReports] = useState<WeeklySelfReport[]>([])
   const [dismissedReminderIds, setDismissedReminderIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
   async function refresh() {
     if (!session) return
     setLoading(true)
-    const [c, a, t, r, d, dep, cli, pol, hot] = await Promise.all([
+    const [c, a, t, r, d, dep, cli, pol, hot, self] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at'),
       supabase.from('appointments').select('*').order('date').order('time'),
       supabase.from('tasks').select('*').order('deadline'),
@@ -99,6 +104,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       supabase.from('clients').select('*').order('name'),
       supabase.from('policies').select('*').order('created_at'),
       supabase.from('hot_leads').select('*').order('created_at', { ascending: false }),
+      supabase.from('weekly_self_reports').select('*').order('week_start', { ascending: false }),
     ])
     setConsultants((c.data as Profile[]) ?? [])
     setAppointments((a.data as Appointment[]) ?? [])
@@ -109,6 +115,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     setClients((cli.data as Client[]) ?? [])
     setPolicies((pol.data as Policy[]) ?? [])
     setHotLeads((hot.data as HotLead[]) ?? [])
+    setSelfReports((self.data as WeeklySelfReport[]) ?? [])
     setLoading(false)
   }
 
@@ -129,6 +136,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'policies' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hot_leads' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_self_reports' }, () => refresh())
       .subscribe()
 
     return () => {
@@ -156,7 +164,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
   }, [session, loading, policies, consultants, clients, tasks])
 
   async function createAppointment(
-    payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'reminder_sent'>,
+    payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'reminder_sent' | 'manager_notified'>,
   ) {
     if (!session) return null
     const { data, error } = await supabase
@@ -423,6 +431,48 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     return { error: null }
   }
 
+  // Compares what the consultor typed against what buildWeeklyReport computes
+  // from their OWN appointments for that same week, then stores the row —
+  // flagged for the líder when the two disagree by more than a rounding
+  // margin (see compareSelfReport). Reuses the once-a-minute cron
+  // (send-appointment-reminders) to actually push the líder, the same way
+  // migration 0025 does for wants_manager — see that function for why.
+  async function submitSelfReport(weekStart: string, input: SelfReportInput) {
+    if (!session) return { error: 'Não autenticado.', hasDivergence: false }
+    const [y, m, d] = weekStart.split('-').map(Number)
+    const startDate = new Date(y, m - 1, d)
+    const endDate = new Date(startDate)
+    endDate.setDate(startDate.getDate() + 6)
+    const weekEnd = dstr(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
+
+    const myProfile = consultants.find((c) => c.id === session.user.id)
+    if (!myProfile) return { error: 'Perfil não encontrado.', hasDivergence: false }
+
+    const { rows } = buildWeeklyReport(appointments, [myProfile], weekStart, weekEnd)
+    const computed = rows[0]
+    const { hasDivergence, details } = compareSelfReport(input, computed)
+
+    const { error } = await supabase.from('weekly_self_reports').upsert(
+      {
+        consultant_id: session.user.id,
+        week_start: weekStart,
+        apolices_count: input.apolicesCount,
+        premio_anualizado: input.premioAnualizado,
+        capital_segurado_morte: input.capitalSeguradoMorte,
+        capital_segurado_ah: input.capitalSeguradoAh,
+        has_divergence: hasDivergence,
+        divergence_details: hasDivergence ? details : null,
+        manager_notified: !hasDivergence,
+        submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'consultant_id,week_start' },
+    )
+    if (error) return { error: error.message, hasDivergence }
+    await refresh()
+    return { error: null, hasDivergence }
+  }
+
   const value = useMemo(
     () => ({
       consultants,
@@ -433,6 +483,7 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       clients,
       policies,
       hotLeads,
+      selfReports,
       dismissedReminderIds,
       loading,
       refresh,
@@ -468,9 +519,10 @@ export function CrmProvider({ children }: { children: ReactNode }) {
       createHotLead,
       createHotLeadsBulk,
       removeHotLead,
+      submitSelfReport,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [consultants, appointments, tasks, reminders, dependents, clients, policies, hotLeads, dismissedReminderIds, loading],
+    [consultants, appointments, tasks, reminders, dependents, clients, policies, hotLeads, selfReports, dismissedReminderIds, loading],
   )
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>
