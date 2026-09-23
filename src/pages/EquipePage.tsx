@@ -31,6 +31,7 @@ const FOLLOWUP_GOAL_FIELDS: [keyof FollowupGoals, string][] = [
   ['delay', 'Recontatar após cliente faltar — delay (dias)'],
   ['entrega', 'Entregar apólice após fechar (dias)'],
   ['recalibrar', 'Retornar pra recalibrar apólice (dias)'],
+  ['leadFrio', 'Avisar lead esquecido na Lista HOT (dias)'],
 ]
 
 export function EquipePage() {

@@ -33,6 +33,7 @@ export interface FollowupGoals {
   delay: number
   entrega: number
   recalibrar: number
+  leadFrio?: number
 }
 
 export interface Profile {
@@ -148,8 +149,9 @@ export interface Task {
   text: string
   deadline: string
   done: boolean
-  auto_kind: 'entrega' | 'recalibrar' | null
+  auto_kind: 'entrega' | 'recalibrar' | 'lead_frio' | null
   auto_policy_id: string | null
+  auto_lead_id: string | null
   created_at: string
 }
 

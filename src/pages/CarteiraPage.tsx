@@ -260,7 +260,7 @@ function FollowupSection({
 }: {
   hint: string
   items: { consultantId: string; name: string; last: Appointment }[]
-  bucket: keyof Profile['followup_goals']
+  bucket: 'naoProtocolado' | 'delay' | 'entrega' | 'recalibrar'
   consultants: Profile[]
   isGestorView: boolean
   appointments: Appointment[]

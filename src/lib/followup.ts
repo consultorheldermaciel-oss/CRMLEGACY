@@ -38,7 +38,7 @@ export interface FollowupAlert {
 }
 
 export function followupAlert(
-  bucket: keyof FollowupGoals,
+  bucket: 'naoProtocolado' | 'delay' | 'entrega' | 'recalibrar',
   lastDate: string,
   goals: FollowupGoals,
   today: Date,

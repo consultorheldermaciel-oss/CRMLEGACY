@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase, functionErrorMessage } from '../lib/supabase'
 import { useAuth } from './AuthContext'
-import { computeAutoCutucaoCandidates } from '../lib/autoCutucao'
+import { computeAutoCutucaoCandidates, computeAutoLeadFrioCandidates } from '../lib/autoCutucao'
 import type { Appointment, Client, Dependent, HotLead, Policy, Profile, Reminder, Task, WeeklySelfReport } from '../lib/types'
 import { buildWeeklyReport, compareSelfReport, type SelfReportInput } from '../lib/report'
 import { dstr } from '../lib/format'
@@ -162,6 +162,22 @@ export function CrmProvider({ children }: { children: ReactNode }) {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, loading, policies, consultants, clients, tasks])
+
+  // Same idempotent auto-Cutucão pattern, for Lista HOT contacts that went
+  // cold (no appointment scheduled past the consultor's threshold).
+  useEffect(() => {
+    if (!session || loading) return
+    const candidates = computeAutoLeadFrioCandidates(hotLeads, appointments, consultants, tasks, new Date())
+    candidates.forEach((c) => {
+      supabase
+        .from('tasks')
+        .insert(c)
+        .then(({ error }) => {
+          if (error && error.code !== '23505') console.error(error) // eslint-disable-line no-console
+        })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, loading, hotLeads, appointments, consultants, tasks])
 
   async function createAppointment(
     payload: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'reminder_sent' | 'manager_notified'>,

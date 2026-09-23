@@ -72,6 +72,7 @@ export function Header() {
     ['dashboard', 'Página principal'],
     ['carteira', 'Carteira de Clientes'],
     ['hotlist', '🔥 Lista HOT'],
+    ['funil', '🎯 Funil'],
   ]
   if (isGestor) navDefs.push(['equipe', 'Equipe'])
   else navDefs.push(['remuneracao', 'Minha remuneração'])
